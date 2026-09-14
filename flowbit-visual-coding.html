@@ -26,6 +26,8 @@
     --logic-soft: rgba(185,140,255,.14);
     --var: #33e2b0;
     --var-soft: rgba(51,226,176,.14);
+    --note: #ffd76e;
+    --note-soft: rgba(255,215,110,.14);
     --danger: #ff5d72;
   }
   *{box-sizing:border-box;}
@@ -92,6 +94,7 @@
     align-items:center;
     gap:7px;
     transition:filter .12s ease, transform .08s ease;
+    white-space:nowrap;
   }
   button:hover{filter:brightness(1.18);}
   button:active{transform:translateY(1px);}
@@ -109,7 +112,54 @@
     color:#ff8b9a;
   }
   #clearBtn{color:var(--text-dim);}
-  .icon-dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;}
+
+  /* ---------- Secondary toolbar ---------- */
+  .toolbar2{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    height:44px;
+    min-height:44px;
+    padding:0 18px;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--border);
+    overflow-x:auto;
+    z-index:19;
+  }
+  .toolbar2 button{
+    padding:6px 11px;
+    font-size:12px;
+  }
+  .toolbar2 .sep{
+    width:1px;height:20px;
+    background:var(--border);
+    margin:0 4px;
+    flex-shrink:0;
+  }
+  .toolbar2 .speed-wrap{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:11.5px;
+    color:var(--text-dim);
+    margin-left:auto;
+    flex-shrink:0;
+    padding-left:10px;
+  }
+  .toolbar2 input[type=range]{
+    width:100px;
+    accent-color:var(--action);
+  }
+  .toolbar2 .speed-val{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--text);
+    min-width:30px;
+  }
+  .toolbar2 .save-indicator{
+    font-size:11px;
+    color:var(--text-faint);
+    min-width:0;
+  }
 
   /* ---------- Body layout ---------- */
   .body-wrap{
@@ -158,7 +208,7 @@
   .cat-action .pal-bar, .node.cat-action{--accent:var(--action);}
   .cat-logic .pal-bar, .node.cat-logic{--accent:var(--logic);}
   .cat-variable .pal-bar, .node.cat-variable{--accent:var(--var);}
-  .pal-item .pal-bar{background:var(--accent);}
+  .cat-note .pal-bar, .node.cat-note{--accent:var(--note);}
 
   .hint{
     margin:18px 4px 0;
@@ -196,6 +246,18 @@
     position:absolute;top:0;left:0;
     width:4000px;height:3000px;
   }
+  .canvas-float-btn{
+    position:absolute;
+    right:16px;
+    bottom:16px;
+    z-index:6;
+    padding:8px 13px;
+    font-size:12px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:9px;
+    box-shadow:0 6px 18px rgba(0,0,0,.4);
+  }
 
   /* ---------- Node ---------- */
   .node{
@@ -208,6 +270,10 @@
     box-shadow:0 6px 18px rgba(0,0,0,.35);
     user-select:none;
     z-index:2;
+  }
+  .node.cat-note{
+    border-style:dashed;
+    background:linear-gradient(180deg,#1a1710,#141209);
   }
   .node.selected{
     border-color:var(--accent);
@@ -233,14 +299,6 @@
     justify-content:space-between;
     gap:8px;
   }
-  .node-head span.tag{
-    font-size:9px;
-    text-transform:uppercase;
-    letter-spacing:.6px;
-    color:var(--accent);
-    font-family:'Inter',sans-serif;
-    font-weight:600;
-  }
   .node-body{
     padding:0 12px 11px;
     display:flex;
@@ -257,7 +315,7 @@
     color:var(--text-dim);
     min-width:38px;
   }
-  .field-row input, .field-row select{
+  .field-row input, .field-row select, .field-row textarea{
     flex:1;
     min-width:0;
     background:#0c0c10;
@@ -269,7 +327,12 @@
     padding:5px 7px;
     outline:none;
   }
-  .field-row input:focus, .field-row select:focus{border-color:var(--accent);}
+  .field-row textarea{
+    min-height:56px;
+    resize:vertical;
+    line-height:1.4;
+  }
+  .field-row input:focus, .field-row select:focus, .field-row textarea:focus{border-color:var(--accent);}
   .node-close{
     width:16px;height:16px;
     border-radius:50%;
@@ -292,7 +355,7 @@
     cursor:crosshair;
     z-index:3;
   }
-  .port:hover{box-shadow:0 0 0 5px var(--accent-soft, rgba(255,255,255,.08));}
+  .port:hover{box-shadow:0 0 0 5px rgba(255,255,255,.08);}
   .port-in{left:-7px;top:50%;transform:translateY(-50%);}
   .port-out{right:-7px;}
   .port-label{
@@ -445,6 +508,25 @@
     </div>
   </header>
 
+  <div class="toolbar2">
+    <button id="undoBtn" title="Undo (Ctrl+Z)">↺ Undo</button>
+    <button id="redoBtn" title="Redo (Ctrl+Shift+Z)">↻ Redo</button>
+    <div class="sep"></div>
+    <button id="saveBtn" title="Save to this browser">Save</button>
+    <button id="loadBtn" title="Load saved project">Load</button>
+    <button id="exportBtn" title="Download as a .json file">Export</button>
+    <button id="importBtn" title="Import a .json file">Import</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none;">
+    <div class="sep"></div>
+    <button id="duplicateBtn" title="Duplicate selected node (Ctrl+D)">⧉ Duplicate</button>
+    <span class="save-indicator" id="saveIndicator"></span>
+    <div class="speed-wrap">
+      <span>Speed</span>
+      <input type="range" id="speedSlider" min="0.5" max="3" step="0.5" value="1">
+      <span class="speed-val" id="speedVal">1x</span>
+    </div>
+  </div>
+
   <div class="body-wrap">
 
     <aside class="palette" id="palette"></aside>
@@ -454,6 +536,7 @@
         <svg id="wiresLayer"></svg>
         <div id="nodesLayer"></div>
       </div>
+      <button class="canvas-float-btn" id="fitBtn" title="Zoom to fit all blocks">⤢ Fit to screen</button>
     </main>
 
     <aside class="right-panel">
@@ -519,11 +602,30 @@ const NODE_DEFS = {
     ],
     hasInput:true, outputs:[{key:'out', label:''}]
   },
+  mathop: {
+    category:'variable', title:'Math', paletteLabel:'Math',
+    fields:[
+      {key:'resultVar', type:'text', label:'Set', default:'result'},
+      {key:'a', type:'text', label:'', default:'0'},
+      {key:'op', type:'select', label:'', options:['+','-','\u00d7','\u00f7','mod'], default:'+'},
+      {key:'b', type:'text', label:'', default:'0'}
+    ],
+    hasInput:true, outputs:[{key:'out', label:''}]
+  },
+  randomnum: {
+    category:'variable', title:'Random Number', paletteLabel:'Random Number',
+    fields:[
+      {key:'resultVar', type:'text', label:'Set', default:'rand'},
+      {key:'min', type:'number', label:'Min', default:1},
+      {key:'max', type:'number', label:'Max', default:10}
+    ],
+    hasInput:true, outputs:[{key:'out', label:''}]
+  },
   ifelse: {
     category:'logic', title:'If / Else', paletteLabel:'If / Else',
     fields:[
       {key:'left', type:'text', label:'If', default:'score'},
-      {key:'op', type:'select', label:'', options:['>','<','=','≠'], default:'>'},
+      {key:'op', type:'select', label:'', options:['>','<','=','\u2260'], default:'>'},
       {key:'right', type:'text', label:'', default:'0'}
     ],
     hasInput:true,
@@ -534,11 +636,36 @@ const NODE_DEFS = {
     fields:[{key:'count', type:'number', label:'Times', default:3, min:1, max:50}],
     hasInput:true,
     outputs:[{key:'body', label:'Loop'},{key:'done', label:'Done'}]
+  },
+  whileloop: {
+    category:'logic', title:'While', paletteLabel:'While',
+    fields:[
+      {key:'left', type:'text', label:'While', default:'score'},
+      {key:'op', type:'select', label:'', options:['>','<','=','\u2260'], default:'<'},
+      {key:'right', type:'text', label:'', default:'10'}
+    ],
+    hasInput:true,
+    outputs:[{key:'body', label:'Loop'},{key:'done', label:'Done'}]
+  },
+  forever: {
+    category:'logic', title:'Forever', paletteLabel:'Forever',
+    fields:[], hasInput:true,
+    outputs:[{key:'body', label:'Loop'},{key:'done', label:'Done'}]
+  },
+  breakloop: {
+    category:'logic', title:'Break Loop', paletteLabel:'Break Loop',
+    fields:[], hasInput:true,
+    outputs:[]
+  },
+  comment: {
+    category:'note', title:'Note', paletteLabel:'Note',
+    fields:[{key:'text', type:'textarea', label:'', default:'Write a note\u2026'}],
+    hasInput:false, outputs:[]
   }
 };
 
-const CATEGORY_LABELS = {event:'Events', action:'Actions', logic:'Logic', variable:'Variables'};
-const CATEGORY_ORDER = ['event','action','logic','variable'];
+const CATEGORY_LABELS = {event:'Events', action:'Actions', logic:'Logic', variable:'Variables', note:'Notes'};
+const CATEGORY_ORDER = ['event','action','logic','variable','note'];
 
 /* ============================= STATE ============================= */
 let nodes = [];      // {id,type,x,y,data:{}}
@@ -553,6 +680,11 @@ let stopRequested = false;
 let vars = {};
 let spritePos = 16;
 const STAGE_MAX = 220;
+let speedMultiplier = 1;
+let clipboardNode = null;
+let pasteOffset = 24;
+let undoStack = [];
+let redoStack = [];
 
 const canvasWrap = document.getElementById('canvasWrap');
 const canvasContent = document.getElementById('canvasContent');
@@ -566,6 +698,18 @@ const bubbleEl = document.getElementById('speechBubble');
 const runBtn = document.getElementById('runBtn');
 const stopBtn = document.getElementById('stopBtn');
 const clearBtn = document.getElementById('clearBtn');
+const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
+const saveBtn = document.getElementById('saveBtn');
+const loadBtn = document.getElementById('loadBtn');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const importFile = document.getElementById('importFile');
+const duplicateBtn = document.getElementById('duplicateBtn');
+const saveIndicator = document.getElementById('saveIndicator');
+const speedSlider = document.getElementById('speedSlider');
+const speedVal = document.getElementById('speedVal');
+const fitBtn = document.getElementById('fitBtn');
 
 function uid(prefix){ return prefix + (idCounter++); }
 function applyTransform(){
@@ -620,7 +764,9 @@ function onPaletteDragEnd(e){
   const wrapRect = canvasWrap.getBoundingClientRect();
   if(e.clientX>wrapRect.left && e.clientX<wrapRect.right && e.clientY>wrapRect.top && e.clientY<wrapRect.bottom){
     const pt = canvasPointFromClient(e.clientX, e.clientY);
-    createNode(paletteDrag.type, pt.x-90, pt.y-24);
+    pushHistory();
+    const n = createNode(paletteDrag.type, pt.x-90, pt.y-24);
+    selectNode(n.id);
   }
   paletteDrag.ghost.remove();
   paletteDrag = null;
@@ -640,7 +786,6 @@ function createNode(type, x, y){
   const node = { id: uid('n'), type, x, y, data };
   nodes.push(node);
   renderNode(node);
-  selectNode(node.id);
   return node;
 }
 
@@ -681,6 +826,10 @@ function renderNode(node){
           if(o===node.data[f.key]) opt.selected=true;
           input.appendChild(opt);
         });
+      } else if(f.type==='textarea'){
+        input = document.createElement('textarea');
+        input.rows = 3;
+        input.value = node.data[f.key];
       } else {
         input = document.createElement('input');
         input.type = f.type==='number' ? 'number' : 'text';
@@ -690,7 +839,10 @@ function renderNode(node){
         input.value = node.data[f.key];
       }
       input.addEventListener('pointerdown', e=>e.stopPropagation());
+      let historyArmed = true;
+      input.addEventListener('focus', ()=>{ historyArmed = true; });
       input.addEventListener('change', ()=>{
+        if(historyArmed){ pushHistory(); historyArmed = false; }
         node.data[f.key] = f.type==='number' ? parseFloat(input.value)||0 : input.value;
       });
       row.appendChild(input);
@@ -737,12 +889,18 @@ function renderNode(node){
   nodeEls[node.id] = el;
 }
 
+function syncFieldsToDOM(node){
+  const def = NODE_DEFS[node.type];
+  const el = nodeEls[node.id];
+  if(!el) return;
+  const inputs = el.querySelectorAll('.field-row input, .field-row select, .field-row textarea');
+  def.fields.forEach((f,i)=>{ if(inputs[i]) inputs[i].value = node.data[f.key]; });
+}
+
 function deleteNode(id){
+  pushHistory();
   nodes = nodes.filter(n=>n.id!==id);
-  edges = edges.filter(e=>{
-    const keep = e.from!==id && e.to!==id;
-    return keep;
-  });
+  edges = edges.filter(e=> e.from!==id && e.to!==id);
   if(nodeEls[id]){ nodeEls[id].remove(); delete nodeEls[id]; }
   if(selectedNodeId===id) selectedNodeId=null;
   drawWires();
@@ -762,12 +920,13 @@ function startNodeDrag(e, node){
   e.stopPropagation();
   selectNode(node.id);
   const start = canvasPointFromClient(e.clientX, e.clientY);
-  dragCtx = { node, offX: start.x-node.x, offY: start.y-node.y, pointerId:e.pointerId };
+  dragCtx = { node, offX: start.x-node.x, offY: start.y-node.y, pointerId:e.pointerId, historyPushed:false };
   window.addEventListener('pointermove', onNodeDragMove);
   window.addEventListener('pointerup', onNodeDragEnd);
 }
 function onNodeDragMove(e){
   if(!dragCtx) return;
+  if(!dragCtx.historyPushed){ pushHistory(); dragCtx.historyPushed = true; }
   const p = canvasPointFromClient(e.clientX, e.clientY);
   dragCtx.node.x = p.x - dragCtx.offX;
   dragCtx.node.y = p.y - dragCtx.offY;
@@ -816,6 +975,7 @@ function onWireDragEnd(e){
   if(target && target.classList.contains('port-in')){
     const toNode = target.dataset.node;
     if(toNode !== wireDrag.fromNode){
+      pushHistory();
       edges = edges.filter(ed => !(ed.to===toNode) && !(ed.from===wireDrag.fromNode && ed.fromPort===wireDrag.fromPort));
       edges.push({ id: uid('e'), from: wireDrag.fromNode, fromPort: wireDrag.fromPort, to: toNode });
       drawWires();
@@ -825,7 +985,7 @@ function onWireDragEnd(e){
 }
 
 /* ============================= WIRE RENDERING ============================= */
-const CAT_COLOR = { event:'#ffb454', action:'#4da3ff', logic:'#b98cff', variable:'#33e2b0' };
+const CAT_COLOR = { event:'#ffb454', action:'#4da3ff', logic:'#b98cff', variable:'#33e2b0', note:'#ffd76e' };
 function portCenter(nodeId, portKey){
   const el = nodeEls[nodeId];
   if(!el) return null;
@@ -842,6 +1002,7 @@ function drawWires(){
     const b = portCenter(edge.to, 'in');
     if(!a||!b) return;
     const node = nodes.find(n=>n.id===edge.from);
+    if(!node) return;
     const color = CAT_COLOR[NODE_DEFS[node.type].category] || '#888';
     const d = bezier(a.x,a.y,b.x,b.y);
 
@@ -902,13 +1063,116 @@ canvasWrap.addEventListener('wheel', (e)=>{
   applyTransform();
 }, {passive:false});
 
+function zoomToFit(){
+  if(!nodes.length) return;
+  const rects = nodes.map(n=>{
+    const el = nodeEls[n.id];
+    const w = el ? el.offsetWidth : 196, h = el ? el.offsetHeight : 60;
+    return {x:n.x, y:n.y, w, h};
+  });
+  const minX = Math.min(...rects.map(r=>r.x));
+  const minY = Math.min(...rects.map(r=>r.y));
+  const maxX = Math.max(...rects.map(r=>r.x+r.w));
+  const maxY = Math.max(...rects.map(r=>r.y+r.h));
+  const wrapRect = canvasWrap.getBoundingClientRect();
+  const pad = 70;
+  const contentW = Math.max(1, maxX-minX+pad*2);
+  const contentH = Math.max(1, maxY-minY+pad*2);
+  const newScale = Math.min(1.4, Math.max(0.3, Math.min(wrapRect.width/contentW, wrapRect.height/contentH)));
+  scale = newScale;
+  panX = -minX*scale + pad*scale + (wrapRect.width - contentW*scale)/2;
+  panY = -minY*scale + pad*scale + (wrapRect.height - contentH*scale)/2;
+  applyTransform();
+}
+fitBtn.addEventListener('click', zoomToFit);
+
+/* ============================= UNDO / REDO ============================= */
+function snapshot(){
+  return JSON.stringify({
+    nodes: nodes.map(n=>({id:n.id, type:n.type, x:n.x, y:n.y, data:{...n.data}})),
+    edges: edges.map(e=>({...e})),
+    idCounter
+  });
+}
+function pushHistory(){
+  undoStack.push(snapshot());
+  if(undoStack.length>60) undoStack.shift();
+  redoStack = [];
+}
+function applySnapshot(json){
+  const state = JSON.parse(json);
+  nodes = state.nodes.map(n=>({id:n.id, type:n.type, x:n.x, y:n.y, data:{...n.data}}));
+  edges = state.edges.map(e=>({...e}));
+  idCounter = state.idCounter || idCounter;
+  rebuildCanvas();
+}
+function rebuildCanvas(){
+  nodesLayer.innerHTML = '';
+  nodeEls = {};
+  nodes.forEach(renderNode);
+  selectedNodeId = null;
+  selectedEdgeId = null;
+  drawWires();
+}
+function undo(){
+  if(!undoStack.length) return;
+  redoStack.push(snapshot());
+  const prev = undoStack.pop();
+  applySnapshot(prev);
+}
+function redo(){
+  if(!redoStack.length) return;
+  undoStack.push(snapshot());
+  const next = redoStack.pop();
+  applySnapshot(next);
+}
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+
+/* ============================= COPY / PASTE / DUPLICATE ============================= */
+function copySelected(){
+  const n = nodes.find(x=>x.id===selectedNodeId);
+  if(!n) return;
+  clipboardNode = {type:n.type, data:{...n.data}, x:n.x, y:n.y};
+  pasteOffset = 24;
+}
+function pasteClipboard(){
+  if(!clipboardNode) return;
+  pushHistory();
+  const n = createNode(clipboardNode.type, clipboardNode.x+pasteOffset, clipboardNode.y+pasteOffset);
+  n.data = {...clipboardNode.data};
+  syncFieldsToDOM(n);
+  selectNode(n.id);
+  pasteOffset += 24;
+}
+function duplicateSelected(){
+  const n = nodes.find(x=>x.id===selectedNodeId);
+  if(!n) return;
+  pushHistory();
+  const nn = createNode(n.type, n.x+24, n.y+24);
+  nn.data = {...n.data};
+  syncFieldsToDOM(nn);
+  selectNode(nn.id);
+}
+duplicateBtn.addEventListener('click', duplicateSelected);
+
 /* ============================= KEYBOARD ============================= */
 window.addEventListener('keydown', (e)=>{
   const tag = document.activeElement.tagName;
-  if(tag==='INPUT' || tag==='SELECT') return;
+  const editing = tag==='INPUT' || tag==='SELECT' || tag==='TEXTAREA';
+  const meta = e.ctrlKey || e.metaKey;
+
+  if(meta && !editing){
+    if(e.key.toLowerCase()==='z' && !e.shiftKey){ e.preventDefault(); undo(); return; }
+    if((e.key.toLowerCase()==='z' && e.shiftKey) || e.key.toLowerCase()==='y'){ e.preventDefault(); redo(); return; }
+    if(e.key.toLowerCase()==='c'){ e.preventDefault(); copySelected(); return; }
+    if(e.key.toLowerCase()==='v'){ e.preventDefault(); pasteClipboard(); return; }
+    if(e.key.toLowerCase()==='d'){ e.preventDefault(); duplicateSelected(); return; }
+  }
+  if(editing) return;
   if(e.key==='Delete' || e.key==='Backspace'){
     if(selectedNodeId){ deleteNode(selectedNodeId); selectedNodeId=null; }
-    else if(selectedEdgeId){ edges = edges.filter(ed=>ed.id!==selectedEdgeId); selectedEdgeId=null; drawWires(); }
+    else if(selectedEdgeId){ pushHistory(); edges = edges.filter(ed=>ed.id!==selectedEdgeId); selectedEdgeId=null; drawWires(); }
   }
   if(e.key==='Escape'){ selectNode(null); selectedEdgeId=null; drawWires(); }
 });
@@ -942,8 +1206,70 @@ function showBubble(text){
   showBubble._t = setTimeout(()=> bubbleEl.classList.remove('show'), 1400);
 }
 
+/* ============================= PERSISTENCE ============================= */
+function serializeProject(){
+  return JSON.stringify({
+    nodes: nodes.map(n=>({id:n.id, type:n.type, x:n.x, y:n.y, data:{...n.data}})),
+    edges: edges.map(e=>({...e})),
+    idCounter
+  }, null, 2);
+}
+function flashSaveIndicator(msg){
+  saveIndicator.textContent = msg;
+  clearTimeout(flashSaveIndicator._t);
+  flashSaveIndicator._t = setTimeout(()=>{ saveIndicator.textContent=''; }, 2500);
+}
+function loadProjectData(jsonStr){
+  try{
+    const state = JSON.parse(jsonStr);
+    if(!Array.isArray(state.nodes) || !Array.isArray(state.edges)) throw new Error('bad shape');
+    pushHistory();
+    nodes = state.nodes;
+    edges = state.edges;
+    idCounter = state.idCounter || (Math.max(0,...nodes.map(n=>parseInt((n.id||'n0').replace(/\D/g,''))||0))+1);
+    rebuildCanvas();
+    flashSaveIndicator('Loaded');
+  } catch(err){
+    flashSaveIndicator('Could not read that file');
+  }
+}
+saveBtn.addEventListener('click', ()=>{
+  localStorage.setItem('flowbit_project', serializeProject());
+  flashSaveIndicator('Saved to this browser');
+});
+loadBtn.addEventListener('click', ()=>{
+  const raw = localStorage.getItem('flowbit_project');
+  if(!raw){ flashSaveIndicator('No saved project found'); return; }
+  loadProjectData(raw);
+});
+exportBtn.addEventListener('click', ()=>{
+  const blob = new Blob([serializeProject()], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'flowbit-project.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+importBtn.addEventListener('click', ()=> importFile.click());
+importFile.addEventListener('change', ()=>{
+  const file = importFile.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> loadProjectData(reader.result);
+  reader.readAsText(file);
+  importFile.value = '';
+});
+
+/* ============================= SPEED CONTROL ============================= */
+speedSlider.addEventListener('input', ()=>{
+  speedMultiplier = parseFloat(speedSlider.value);
+  speedVal.textContent = speedMultiplier+'x';
+});
+
 /* ============================= EXECUTION ENGINE ============================= */
-function sleep(ms){ return new Promise(res=>setTimeout(res,ms)); }
+class BreakSignal{}
+function rawSleep(ms){ return new Promise(res=>setTimeout(res,ms)); }
+function sleep(ms){ return rawSleep(ms/speedMultiplier); }
 function findEdge(fromId, portKey){ return edges.find(e=>e.from===fromId && e.fromPort===portKey); }
 function resolveVal(token){
   if(token===undefined || token==='') return '';
@@ -965,6 +1291,17 @@ function compare(l,op,r){
   }
   return false;
 }
+function mathCompute(a,op,b){
+  const A = Number(a), B = Number(b);
+  switch(op){
+    case '+': return A+B;
+    case '-': return A-B;
+    case '\u00d7': return A*B;
+    case '\u00f7': return B===0 ? NaN : A/B;
+    case 'mod': return B===0 ? NaN : A%B;
+  }
+  return NaN;
+}
 
 const STEP_MS = 380;
 let stepGuard = 0;
@@ -979,6 +1316,16 @@ function unhighlight(node){
   if(el) el.classList.remove('active');
 }
 
+async function runLoopBody(bodyStartId){
+  try{
+    if(bodyStartId) await runChain(bodyStartId);
+    return true;
+  } catch(e){
+    if(e instanceof BreakSignal) return false;
+    throw e;
+  }
+}
+
 async function runChain(startNodeId){
   let currentId = startNodeId;
   while(currentId){
@@ -986,7 +1333,6 @@ async function runChain(startNodeId){
     if(++stepGuard > STEP_LIMIT){ log('Stopped: too many steps (possible infinite loop).','err'); return; }
     const node = nodes.find(n=>n.id===currentId);
     if(!node) return;
-    const def = NODE_DEFS[node.type];
     await highlight(node);
     await sleep(STEP_MS*0.35);
 
@@ -1017,6 +1363,21 @@ async function runChain(startNodeId){
       updateVarsPanel();
       log(`Change ${node.data.name} by ${node.data.delta} \u2192 ${vars[node.data.name]}`, 'var');
       nextId = findEdge(node.id,'out')?.to;
+    } else if(node.type==='mathop'){
+      const a = resolveVal(node.data.a), b = resolveVal(node.data.b);
+      const res = mathCompute(a, node.data.op, b);
+      vars[node.data.resultVar] = res;
+      updateVarsPanel();
+      log(`Math: ${node.data.resultVar} = ${node.data.a} ${node.data.op} ${node.data.b} = ${res}`, 'var');
+      nextId = findEdge(node.id,'out')?.to;
+    } else if(node.type==='randomnum'){
+      const lo = Math.min(Number(node.data.min),Number(node.data.max));
+      const hi = Math.max(Number(node.data.min),Number(node.data.max));
+      const rnd = Math.floor(Math.random()*(hi-lo+1))+lo;
+      vars[node.data.resultVar] = rnd;
+      updateVarsPanel();
+      log(`Random: ${node.data.resultVar} = ${rnd}`, 'var');
+      nextId = findEdge(node.id,'out')?.to;
     } else if(node.type==='ifelse'){
       const l = resolveVal(node.data.left), r = resolveVal(node.data.right);
       const result = compare(l, node.data.op, r);
@@ -1028,9 +1389,38 @@ async function runChain(startNodeId){
       const bodyStart = findEdge(node.id,'body')?.to;
       for(let i=0;i<count;i++){
         if(stopRequested) return;
-        if(bodyStart) await runChain(bodyStart);
+        const keepGoing = await runLoopBody(bodyStart);
+        if(!keepGoing) break;
       }
       nextId = findEdge(node.id,'done')?.to;
+    } else if(node.type==='whileloop'){
+      const bodyStart = findEdge(node.id,'body')?.to;
+      let guardCount = 0;
+      log(`While ${node.data.left} ${node.data.op} ${node.data.right}`, 'var');
+      while(!stopRequested && compare(resolveVal(node.data.left), node.data.op, resolveVal(node.data.right))){
+        if(++stepGuard > STEP_LIMIT){ log('Stopped: too many steps (possible infinite loop).','err'); break; }
+        if(++guardCount > 1000){ log('While loop stopped after 1000 iterations (safety limit).','err'); break; }
+        if(!bodyStart) break;
+        const keepGoing = await runLoopBody(bodyStart);
+        if(!keepGoing) break;
+      }
+      nextId = findEdge(node.id,'done')?.to;
+    } else if(node.type==='forever'){
+      const bodyStart = findEdge(node.id,'body')?.to;
+      if(!bodyStart){
+        log('Forever loop has an empty Loop branch \u2014 stopping.','err');
+      } else {
+        log('Forever loop started (press Stop to end it)', 'var');
+        while(!stopRequested){
+          if(++stepGuard > STEP_LIMIT){ log('Stopped: too many steps (possible infinite loop).','err'); break; }
+          const keepGoing = await runLoopBody(bodyStart);
+          if(!keepGoing) break;
+        }
+      }
+      nextId = findEdge(node.id,'done')?.to;
+    } else if(node.type==='breakloop'){
+      unhighlight(node);
+      throw new BreakSignal();
     } else if(node.type==='event'){
       nextId = findEdge(node.id,'out')?.to;
     }
@@ -1059,7 +1449,12 @@ async function runProgram(){
   for(const ev of events){
     if(stopRequested) break;
     log('\u25b6 Program started', 'evt');
-    await runChain(ev.id);
+    try{
+      await runChain(ev.id);
+    } catch(e){
+      if(e instanceof BreakSignal) log('Break Loop used outside of a loop \u2014 ignored.', 'err');
+      else throw e;
+    }
   }
   if(!stopRequested) log('\u25a0 Finished', 'evt');
   else log('\u25a0 Stopped', 'err');
@@ -1073,6 +1468,7 @@ stopBtn.addEventListener('click', ()=>{ stopRequested = true; });
 clearBtn.addEventListener('click', ()=>{
   if(running) return;
   if(!nodes.length || confirm('Clear the whole canvas?')){
+    pushHistory();
     nodes=[]; edges=[]; nodesLayer.innerHTML=''; nodeEls={}; selectedNodeId=null; selectedEdgeId=null;
     drawWires();
   }
@@ -1087,7 +1483,7 @@ function seedExample(){
   const n5 = createNode('changevar', 860, 30); n5.data.name='score'; n5.data.delta=1;
   const n6 = createNode('move', 860, 150); n6.data.steps=10;
   const n7 = createNode('say', 1140, 250); n7.data.text='Done, score is score!';
-  refreshFields();
+  [n2,n3,n4,n5,n6,n7].forEach(syncFieldsToDOM);
 
   edges.push({id:uid('e'), from:n1.id, fromPort:'out', to:n2.id});
   edges.push({id:uid('e'), from:n2.id, fromPort:'out', to:n3.id});
@@ -1097,16 +1493,8 @@ function seedExample(){
   edges.push({id:uid('e'), from:n4.id, fromPort:'done', to:n7.id});
   drawWires();
   selectNode(null);
-}
-function refreshFields(){
-  // re-render input values that were set programmatically after creation
-  nodes.forEach(node=>{
-    const def = NODE_DEFS[node.type];
-    const el = nodeEls[node.id];
-    if(!el) return;
-    const inputs = el.querySelectorAll('.field-row input, .field-row select');
-    def.fields.forEach((f,i)=>{ if(inputs[i]) inputs[i].value = node.data[f.key]; });
-  });
+  undoStack = [];
+  redoStack = [];
 }
 seedExample();
 
