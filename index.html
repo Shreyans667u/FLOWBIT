@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Flowbit — Visual Coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0a0e;
+    --bg-canvas: #0b0b10;
+    --panel: #111116;
+    --panel-2: #16161d;
+    --border: #23232c;
+    --border-soft: #1b1b22;
+    --text: #eceef3;
+    --text-dim: #8b8c98;
+    --text-faint: #55565f;
+
+    /* Category accent colours \u2014 loosely follow Scratch's own category colours,
+       adapted to sit well on a dark background. Each category gets exactly one hue. */
+    --event: #ffb454;      --event-soft: rgba(255,180,84,.14);
+    --motion: #4da3ff;     --motion-soft: rgba(77,163,255,.14);
+    --looks: #ff7ad9;      --looks-soft: rgba(255,122,217,.14);
+    --sound: #b98cff;      --sound-soft: rgba(185,140,255,.14);
+    --control: #ff9d4d;    --control-soft: rgba(255,157,77,.14);
+    --sensing: #5cd0e0;    --sensing-soft: rgba(92,208,224,.14);
+    --operators: #33e2b0;  --operators-soft: rgba(51,226,176,.14);
+    --variables: #ff8f6b;  --variables-soft: rgba(255,143,107,.14);
+    --lists: #ff6f6f;      --lists-soft: rgba(255,111,111,.14);
+    --note: #8b909c;       --note-soft: rgba(139,144,156,.14);
+    --danger: #ff5d72;
+    --action-soft: rgba(77,163,255,.14); /* used by the generic "just changed" variable flash */
+
+    --header-h: 54px;
+    --subbar-h: 42px;
+    --mobile-tabbar-h: 46px;
+    --mobile-fab: 56px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+  }
+  svg{display:block;}
+  #app{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    height:100dvh;
+  }
+
+  /* ---------- Top bar ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 18px;
+    height:var(--header-h);
+    min-height:var(--header-h);
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+    z-index:30;
+    gap:10px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;min-width:0;}
+  .brand .mark{
+    width:20px;height:20px;border-radius:6px;flex-shrink:0;
+    background:linear-gradient(135deg,var(--motion),var(--operators));
+    box-shadow:0 0 14px rgba(77,163,255,.45);
+  }
+  .brand h1{font-family:'Sora',sans-serif;font-size:15px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .brand p{margin:0;font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .top-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  button{
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+    color:var(--text);
+    font-size:13px;
+    font-weight:500;
+    padding:8px 14px;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    transition:filter .12s ease, transform .08s ease, border-color .12s ease;
+  }
+  button svg{width:14px;height:14px;flex-shrink:0;}
+  button:hover{filter:brightness(1.18);}
+  button:active{transform:translateY(1px);}
+  button:focus-visible{outline:2px solid var(--motion);outline-offset:1px;}
+  button:disabled{opacity:.4;cursor:not-allowed;filter:none;}
+  .icon-btn{padding:8px;width:34px;height:34px;justify-content:center;}
+  #runBtn{background:linear-gradient(135deg,#1fce8f,#0fae76);border-color:transparent;color:#04140d;font-weight:600;}
+  #stopBtn{background:rgba(255,93,114,.12);border-color:rgba(255,93,114,.35);color:#ff8b9a;}
+  #clearBtn{color:var(--text-dim);}
+
+  /* ---------- Sub toolbar (history / view / persistence) ---------- */
+  .subbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    height:var(--subbar-h);
+    min-height:var(--subbar-h);
+    padding:0 14px;
+    background:var(--panel);
+    border-bottom:1px solid var(--border);
+    gap:10px;
+    z-index:29;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .subbar::-webkit-scrollbar{display:none;}
+  .subbar .group{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .subbar button{padding:6px 10px;font-size:12px;}
+  .subbar .sep{width:1px;height:20px;background:var(--border);margin:0 2px;flex-shrink:0;}
+  .speed-wrap{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim);white-space:nowrap;}
+  .speed-wrap input[type=range]{width:70px;accent-color:var(--motion);}
+  #saveIndicator{font-size:11px;color:var(--text-faint);white-space:nowrap;}
+
+  /* ---------- Body layout ---------- */
+  .body-wrap{flex:1;display:flex;min-height:0;position:relative;}
+
+  /* ---------- Palette (desktop sidebar / mobile bottom sheet) ---------- */
+  aside.palette{
+    width:216px;min-width:216px;
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    overflow-y:auto;
+    padding:12px 12px 30px;
+    display:flex;
+    flex-direction:column;
+  }
+  .palette-search{
+    position:relative;
+    margin-bottom:10px;
+  }
+  .palette-search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--text-faint);}
+  .palette-search input{
+    width:100%;
+    background:#0c0c10;
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    font-size:12.5px;
+    padding:8px 10px 8px 28px;
+    outline:none;
+  }
+  .palette-search input:focus{border-color:var(--motion);}
+  .palette h2{
+    font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--text-faint);
+    margin:14px 4px 8px;font-weight:600;
+  }
+  .palette h2:first-of-type{margin-top:2px;}
+  .pal-cat{display:flex;flex-direction:column;}
+  .pal-cat.hidden{display:none;}
+  .pal-item{
+    display:flex;align-items:center;gap:9px;
+    padding:9px 10px;margin-bottom:6px;border-radius:9px;
+    border:1px solid var(--border-soft);background:var(--panel-2);
+    font-size:12.5px;font-weight:500;cursor:grab;user-select:none;
+    transition:border-color .12s ease, background .12s ease;
+    touch-action:none;
+  }
+  .pal-item .pal-icon{width:16px;height:16px;flex-shrink:0;color:var(--accent);}
+  .pal-item:hover{background:#1b1b23;}
+  .pal-item:active{cursor:grabbing;}
+  .pal-bar{width:4px;align-self:stretch;border-radius:3px;min-height:16px;background:var(--accent);flex-shrink:0;}
+  .cat-event{--accent:var(--event);}       .cat-motion{--accent:var(--motion);}
+  .cat-looks{--accent:var(--looks);}       .cat-sound{--accent:var(--sound);}
+  .cat-control{--accent:var(--control);}   .cat-sensing{--accent:var(--sensing);}
+  .cat-operators{--accent:var(--operators);} .cat-variables{--accent:var(--variables);}
+  .cat-lists{--accent:var(--lists);}       .cat-note{--accent:var(--note);}
+  .hint{margin:16px 4px 0;font-size:11px;line-height:1.5;color:var(--text-faint);}
+
+  /* ---------- Canvas ---------- */
+  main.canvas-wrap{
+    flex:1;position:relative;overflow:hidden;
+    background:var(--bg-canvas);cursor:grab;touch-action:none;
+  }
+  main.canvas-wrap.panning{cursor:grabbing;}
+  #canvasContent{
+    position:absolute;top:0;left:0;width:4000px;height:3000px;
+    transform-origin:0 0;
+    background-image:radial-gradient(circle, #1c1c26 1px, transparent 1px);
+    background-size:26px 26px;background-position:0 0;
+  }
+  #wiresLayer{position:absolute;top:0;left:0;width:4000px;height:3000px;overflow:visible;pointer-events:none;}
+  #nodesLayer{position:absolute;top:0;left:0;width:4000px;height:3000px;}
+
+  .canvas-empty-state{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    text-align:center;color:var(--text-faint);font-size:13px;
+    pointer-events:none;z-index:1;width:260px;
+  }
+  .canvas-empty-state svg{width:34px;height:34px;margin-bottom:10px;opacity:.6;}
+  .canvas-empty-state.hide{display:none;}
+
+  /* zoom readout, bottom-left of canvas */
+  .zoom-hud{
+    position:absolute;left:14px;bottom:14px;z-index:5;
+    display:flex;align-items:center;gap:4px;
+    background:rgba(17,17,22,.9);border:1px solid var(--border);border-radius:8px;
+    padding:4px;backdrop-filter:blur(4px);
+  }
+  .zoom-hud button{padding:5px 8px;font-size:11px;background:transparent;border:none;}
+  .zoom-hud span{font-size:11px;color:var(--text-dim);min-width:38px;text-align:center;}
+
+  /* ---------- Node ---------- */
+  .node{
+    position:absolute;min-width:196px;
+    background:linear-gradient(180deg,#151519,#111115);
+    border:1px solid var(--border);border-left:3px solid var(--accent);
+    border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.35);
+    user-select:none;z-index:2;
+  }
+  .node.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent), 0 0 22px -2px var(--accent), 0 6px 18px rgba(0,0,0,.4);}
+  .node.active{box-shadow:0 0 0 1px var(--accent), 0 0 28px 2px var(--accent), 0 6px 18px rgba(0,0,0,.4);animation:pulse .9s ease-in-out infinite;}
+  .node.error{box-shadow:0 0 0 1px var(--danger), 0 0 20px 0 rgba(255,93,114,.5);}
+  @keyframes pulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35);}}
+  .node-head{
+    padding:9px 10px 9px 12px;font-family:'Sora',sans-serif;font-size:12.5px;font-weight:600;color:var(--text);
+    cursor:move;display:flex;align-items:center;gap:7px;touch-action:none;
+  }
+  .node-head .node-icon{width:14px;height:14px;color:var(--accent);flex-shrink:0;}
+  .node-head .node-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .node-body{padding:0 12px 11px;display:flex;flex-direction:column;gap:6px;}
+  .field-row{display:flex;align-items:center;gap:6px;}
+  .field-row label{font-size:11px;color:var(--text-dim);min-width:34px;flex-shrink:0;}
+  .field-row input, .field-row select, .field-row textarea{
+    flex:1;min-width:0;background:#0c0c10;border:1px solid var(--border);border-radius:6px;
+    color:var(--text);font-size:12px;font-family:'Inter',sans-serif;padding:5px 7px;outline:none;
+  }
+  .field-row textarea{resize:vertical;min-height:44px;font-family:'Inter',sans-serif;}
+  .field-row input:focus, .field-row select:focus, .field-row textarea:focus{border-color:var(--accent);}
+  .node-close{
+    width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    color:var(--text-faint);cursor:pointer;flex-shrink:0;
+  }
+  .node-close svg{width:10px;height:10px;}
+  .node-close:hover{color:var(--danger);background:rgba(255,93,114,.12);}
+
+  /* ports \u2014 sized up on touch via the media query further below */
+  .port{position:absolute;width:13px;height:13px;border-radius:50%;background:#0c0c10;border:2px solid var(--accent);cursor:crosshair;z-index:3;touch-action:none;}
+  .port::after{content:'';position:absolute;inset:-9px;} /* invisible larger hit area, doesn't affect visuals */
+  .port:hover{box-shadow:0 0 0 5px var(--accent-soft, rgba(255,255,255,.08));}
+  .port-in{left:-7px;top:50%;transform:translateY(-50%);}
+  .port-out{right:-7px;}
+  .port-label{position:absolute;font-size:9px;color:var(--text-faint);white-space:nowrap;top:50%;transform:translateY(-50%);}
+  .port-out .port-label{right:16px;}
+
+  .wire{fill:none;stroke-width:2.4;cursor:pointer;pointer-events:stroke;}
+  .wire.selected{stroke-width:3.4;filter:drop-shadow(0 0 6px currentColor);}
+  .wire.active-flow{stroke-width:3.2;filter:drop-shadow(0 0 5px currentColor);}
+  .wire-hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer;}
+  .temp-wire{fill:none;stroke:#777;stroke-width:2;stroke-dasharray:5 4;pointer-events:none;}
+
+  /* ---------- Right panel (Stage / Variables / Console) ---------- */
+  aside.right-panel{
+    width:296px;min-width:296px;background:var(--panel);border-left:1px solid var(--border);
+    display:flex;flex-direction:column;min-height:0;
+  }
+  .panel-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+  .panel-section h2{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--text-faint);margin:0 0 10px;font-weight:600;}
+
+  #stage{
+    position:relative;width:100%;aspect-ratio:4/3;
+    border-radius:10px;overflow:hidden;
+    background:radial-gradient(circle at 30% 20%, rgba(77,163,255,.06), transparent 60%), #0c0c11;
+    border:1px solid var(--border-soft);
+    touch-action:none;
+  }
+  #stage.dragmode{cursor:crosshair;}
+  #spriteWrap{position:absolute;left:50%;top:50%;width:36px;height:36px;transform-origin:center;pointer-events:none;}
+  #spriteWrap svg{width:100%;height:100%;overflow:visible;}
+  #speechBubble{
+    position:absolute;left:50%;top:50%;max-width:190px;background:#1c1c24;border:1px solid var(--border);
+    border-radius:8px;padding:5px 9px;font-size:11.5px;opacity:0;transform:translate(-50%,-140%);
+    transition:opacity .18s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;
+  }
+  #speechBubble.show{opacity:1;}
+  #speechBubble.think{border-style:dashed;color:var(--text-dim);}
+  .stage-coords{position:absolute;right:6px;bottom:5px;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-faint);background:rgba(10,10,14,.6);padding:2px 5px;border-radius:5px;}
+
+  #varsList, #listsPanel{display:flex;flex-direction:column;gap:6px;max-height:130px;overflow-y:auto;}
+  .var-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;background:#0c0c11;border:1px solid var(--border-soft);border-radius:6px;padding:6px 9px;}
+  .var-row .vname{color:var(--variables);font-weight:500;flex-shrink:0;}
+  .var-row .vval{color:var(--text-dim);font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .list-row{background:#0c0c11;border:1px solid var(--border-soft);border-radius:6px;padding:6px 9px;font-size:12px;}
+  .list-row .lname{color:var(--lists);font-weight:500;display:block;margin-bottom:3px;}
+  .list-row .litems{color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-word;}
+  .empty-note{font-size:11.5px;color:var(--text-faint);}
+  .var-row.flash{animation:varFlash .7s ease;}
+  @keyframes varFlash{0%{background:var(--action-soft);border-color:var(--motion);}100%{background:#0c0c11;border-color:var(--border-soft);}}
+
+  .console-wrap{flex:1;display:flex;flex-direction:column;min-height:0;padding:14px 16px;}
+  .console-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .console-filters{display:flex;gap:4px;}
+  .console-filters button{padding:3px 7px;font-size:10.5px;background:transparent;border:1px solid var(--border-soft);}
+  .console-filters button.active{background:var(--panel-2);border-color:var(--motion);color:var(--motion);}
+  #console{flex:1;overflow-y:auto;background:#0a0a0e;border:1px solid var(--border-soft);border-radius:8px;padding:10px 11px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.6;}
+  #console .line{color:var(--text-dim);}
+  #console .line.evt{color:var(--event);}
+  #console .line.act{color:#bcd9ff;}
+  #console .line.var{color:var(--variables);}
+  #console .line.err{color:var(--danger);}
+  #console .line .t{color:var(--text-faint);margin-right:6px;}
+  #console .line.hidden{display:none;}
+
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-thumb{background:#222229;border-radius:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  /* ---------- Ask and Wait modal ---------- */
+  #askModalOverlay{
+    position:fixed;inset:0;background:rgba(6,6,9,.6);display:flex;align-items:center;justify-content:center;
+    z-index:100;opacity:0;pointer-events:none;transition:opacity .15s ease;
+  }
+  #askModalOverlay.show{opacity:1;pointer-events:auto;}
+  .ask-modal{
+    width:340px;max-width:calc(100vw - 40px);background:linear-gradient(180deg,#17171d,#121216);
+    border:1px solid var(--border);border-left:3px solid var(--sensing);border-radius:12px;
+    box-shadow:0 20px 50px rgba(0,0,0,.55);padding:16px 18px;
+  }
+  .ask-modal h3{margin:0 0 4px;font-family:'Sora',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--sensing);font-weight:600;}
+  .ask-modal p{margin:0 0 12px;font-size:13.5px;color:var(--text);line-height:1.4;}
+  .ask-modal input{width:100%;background:#0c0c10;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px;outline:none;margin-bottom:12px;}
+  .ask-modal input:focus{border-color:var(--sensing);}
+  .ask-modal .ask-actions{display:flex;justify-content:flex-end;}
+  .ask-modal .ask-actions button{background:linear-gradient(135deg,#1fce8f,#0fae76);border-color:transparent;color:#04140d;font-weight:600;}
+
+  /* ---------- Context menu (right-click desktop / long-press touch) ---------- */
+  #contextMenu{
+    position:fixed;z-index:120;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;
+    box-shadow:0 12px 30px rgba(0,0,0,.5);padding:5px;min-width:150px;
+    opacity:0;transform:scale(.96);pointer-events:none;transition:opacity .1s ease, transform .1s ease;
+  }
+  #contextMenu.show{opacity:1;transform:scale(1);pointer-events:auto;}
+  #contextMenu button{width:100%;justify-content:flex-start;background:transparent;border:none;padding:8px 9px;font-size:12.5px;border-radius:7px;}
+  #contextMenu button:hover{background:#20202a;}
+  #contextMenu button.danger{color:#ff8b9a;}
+  #contextMenu button svg{width:13px;height:13px;color:var(--text-dim);}
+
+  /* ---------- Mobile: floating blocks button + drawer, bottom tabs ---------- */
+  #mobileBlocksFab, #mobileDrawerBackdrop, .mobile-tabbar{display:none;}
+  #mobileBlocksFab{
+    position:fixed;left:16px;bottom:16px;width:var(--mobile-fab);height:var(--mobile-fab);border-radius:16px;
+    background:linear-gradient(135deg,var(--motion),var(--operators));border:none;color:#04121f;
+    box-shadow:0 8px 22px rgba(0,0,0,.45);z-index:60;justify-content:center;
+  }
+  #mobileBlocksFab svg{width:22px;height:22px;}
+  #mobileDrawerBackdrop{
+    position:fixed;inset:0;background:rgba(4,4,6,.55);z-index:55;opacity:0;pointer-events:none;transition:opacity .18s ease;
+  }
+  #mobileDrawerBackdrop.show{opacity:1;pointer-events:auto;}
+  .drawer-handle{display:none;}
+
+  ::-webkit-scrollbar{width:9px;height:9px;}
+
+  /* =====================================================================
+     MOBILE / NARROW SCREEN LAYOUT
+     The desktop three-column layout (palette | canvas | stage-vars-console)
+     becomes: full-width canvas, palette in a bottom sheet opened by a FAB,
+     and the right panel collapsed into a swipeable bottom tab bar.
+     Interaction logic (drag/wire/pan/zoom) is shared \u2014 only layout changes.
+     ===================================================================== */
+  @media (max-width: 880px){
+    header{padding:0 12px;gap:6px;}
+    .brand p{display:none;}
+    .subbar{padding:0 10px;}
+    .speed-wrap span.speed-label{display:none;}
+
+    aside.palette{
+      position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;min-width:0;
+      max-height:66vh;border-right:none;border-top:1px solid var(--border);
+      border-radius:16px 16px 0 0;z-index:56;
+      transform:translateY(100%);transition:transform .22s ease;
+      padding-top:6px;
+      box-shadow:0 -10px 30px rgba(0,0,0,.4);
+    }
+    aside.palette.open{transform:translateY(0);}
+    .drawer-handle{display:block;width:36px;height:4px;border-radius:3px;background:var(--border);margin:2px auto 10px;}
+    #mobileBlocksFab{display:flex;}
+    #mobileDrawerBackdrop{display:block;}
+
+    main.canvas-wrap{width:100%;}
+
+    aside.right-panel{
+      position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;min-width:0;
+      height:46vh;border-left:none;border-top:1px solid var(--border);
+      z-index:40;transform:translateY(calc(100% - var(--mobile-tabbar-h)));
+      transition:transform .22s ease;
+    }
+    aside.right-panel.expanded{transform:translateY(0);}
+    .panel-section, .console-wrap{display:none;}
+    aside.right-panel.tab-stage .panel-section.tab-stage-content,
+    aside.right-panel.tab-vars .panel-section.tab-vars-content,
+    aside.right-panel.tab-console .console-wrap{display:flex;flex-direction:column;}
+    .panel-section.tab-stage-content, .panel-section.tab-vars-content{flex:1;overflow-y:auto;border-bottom:none;}
+
+    .mobile-tabbar{
+      display:flex;height:var(--mobile-tabbar-h);border-top:1px solid var(--border);background:var(--panel-2);
+    }
+    .mobile-tabbar button{
+      flex:1;border-radius:0;border:none;background:transparent;justify-content:center;
+      font-size:11.5px;color:var(--text-dim);gap:5px;
+    }
+    .mobile-tabbar button.active{color:var(--text);background:var(--panel);}
+    .mobile-tabbar button svg{width:15px;height:15px;}
+
+    /* Touch targets: bigger ports and close buttons on touch/narrow screens */
+    .port{width:20px;height:20px;border-width:3px;}
+    .port-in{left:-10px;}
+    .port-out{right:-10px;}
+    .node-close{width:24px;height:24px;}
+    .node-head{padding:11px 12px;}
+    .field-row input, .field-row select, .field-row textarea{padding:8px 9px;font-size:13px;}
+    .zoom-hud{bottom:calc(var(--mobile-tabbar-h) + 14px);}
+  }
+
+  @media (max-width: 880px) and (orientation: landscape){
+    aside.palette{max-height:80vh;}
+    aside.right-panel{height:60vh;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <h1>Flowbit</h1>
+        <p>Drag blocks. Wire them together. Press Run.</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button id="clearBtn">Clear</button>
+      <button id="stopBtn" disabled>&#9632; Stop</button>
+      <button id="runBtn">&#9654; Run</button>
+    </div>
+  </header>
+
+  <div class="subbar">
+    <div class="group">
+      <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" disabled></button>
+      <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" disabled></button>
+      <div class="sep"></div>
+      <button id="duplicateBtn" class="icon-btn" title="Duplicate selected (Ctrl+D)"></button>
+      <div class="sep"></div>
+      <button id="fitBtn" title="Zoom to fit"></button>
+    </div>
+    <div class="group">
+      <div class="speed-wrap">
+        <span class="speed-label">Speed</span>
+        <input type="range" id="speedSlider" min="0.5" max="3" step="0.25" value="1">
+        <span id="speedVal">1x</span>
+      </div>
+      <div class="sep"></div>
+      <span id="saveIndicator"></span>
+      <button id="saveBtn" title="Save to this browser"></button>
+      <button id="loadBtn" title="Load saved project"></button>
+      <button id="exportBtn" title="Export as .json"></button>
+      <button id="importBtn" title="Import a .json file"></button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </div>
+  </div>
+
+  <div class="body-wrap">
+
+    <aside class="palette" id="palette">
+      <div class="drawer-handle"></div>
+      <div class="palette-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="paletteSearch" placeholder="Search blocks">
+      </div>
+      <div id="paletteBody"></div>
+      <p class="hint">Drag a block onto the canvas, then drag from the dot on its edge to another block's dot to connect them. Scroll or pinch to zoom, drag empty space to pan.</p>
+    </aside>
+
+    <main class="canvas-wrap" id="canvasWrap">
+      <div id="canvasContent">
+        <svg id="wiresLayer"></svg>
+        <div id="nodesLayer"></div>
+      </div>
+      <div class="canvas-empty-state" id="canvasEmptyState">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
+        <div>Drag a block from the palette to get started</div>
+      </div>
+      <div class="zoom-hud">
+        <button id="zoomOutBtn">&minus;</button>
+        <span id="zoomLabel">100%</span>
+        <button id="zoomInBtn">+</button>
+      </div>
+    </main>
+
+    <aside class="right-panel tab-stage" id="rightPanel">
+      <div class="panel-section tab-stage-content">
+        <h2>Stage</h2>
+        <div id="stage">
+          <div id="speechBubble"></div>
+          <div id="spriteWrap"></div>
+          <div class="stage-coords" id="stageCoords">x:0 y:0</div>
+        </div>
+      </div>
+      <div class="panel-section tab-vars-content">
+        <h2>Variables</h2>
+        <div id="varsList"><div class="empty-note">No variables yet.</div></div>
+        <h2 style="margin-top:14px;">Lists</h2>
+        <div id="listsPanel"><div class="empty-note">No lists yet.</div></div>
+      </div>
+      <div class="console-wrap">
+        <div class="console-head">
+          <h2 style="margin:0;">Console</h2>
+          <div class="console-filters">
+            <button class="active" data-filter="all">All</button>
+            <button data-filter="err">Errors</button>
+            <button data-filter="var">Vars</button>
+          </div>
+        </div>
+        <div id="console"><div class="line">Ready. Press Run to execute the graph.</div></div>
+      </div>
+      <div class="mobile-tabbar">
+        <button data-tab="stage" class="active"></button>
+        <button data-tab="vars"></button>
+        <button data-tab="console"></button>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<button id="mobileBlocksFab" title="Blocks"></button>
+<div id="mobileDrawerBackdrop"></div>
+
+<div id="askModalOverlay">
+  <div class="ask-modal">
+    <h3>Flowbit is asking</h3>
+    <p id="askModalText">Question</p>
+    <input type="text" id="askModalInput" placeholder="Type your answer&hellip;">
+    <div class="ask-actions"><button id="askModalSubmit">Submit</button></div>
+  </div>
+</div>
+
+<div id="contextMenu">
+  <button id="ctxDuplicate"></button>
+  <button id="ctxDelete" class="danger"></button>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================= ICONS (inline SVG, one per category) ============================= */
+const CAT_ICON_PATHS = {
+  event:      '<circle cx="12" cy="12" r="9"/><path d="M10 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/>',
+  motion:     '<path d="M3 12h15"/><path d="M13 6l6 6-6 6"/>',
+  looks:      '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+  sound:      '<path d="M4 9v6h4l5 4V5l-5 4H4z"/><path d="M16.5 9a4 4 0 010 6"/><path d="M19 6.5a8 8 0 010 11"/>',
+  control:    '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',
+  sensing:    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6" fill="currentColor" stroke="none"/>',
+  operators:  '<path d="M12 5v14M5 12h14"/>',
+  variables:  '<path d="M12 2H4v8l10 10 8-8L12 2z"/><circle cx="7.5" cy="7.5" r="1.3" fill="currentColor" stroke="none"/>',
+  lists:      '<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/>',
+  note:       '<path d="M4 4h16v12H9l-5 4z"/>'
+};
+function catIconSvg(cat){
+  const p = CAT_ICON_PATHS[cat] || '';
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+}
+const UI_ICONS = {
+  undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a6 6 0 010 12h-1"/>',
+  redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9a6 6 0 000 12h1"/>',
+  duplicate: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/>',
+  fit: '<path d="M4 9V5a1 1 0 011-1h4M20 9V5a1 1 0 00-1-1h-4M4 15v4a1 1 0 001 1h4M20 15v4a1 1 0 01-1 1h-4"/>',
+  save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 21v-7h8v7"/>',
+  load: '<path d="M3 7l3-4h12l3 4"/><path d="M3 7v13h18V7"/><path d="M3 7h18"/>',
+  exportIcon: '<path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M4 21h16"/>',
+  importIcon: '<path d="M12 15V3"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>',
+  fab: '<rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="15" width="7" height="7" rx="1.5"/><rect x="14" y="15" width="7" height="7" rx="1.5"/>',
+  trash: '<path d="M4 7h16"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+  stage: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 20h8"/>',
+  vars: '<path d="M4 6h16M4 12h10M4 18h13"/>',
+  console: '<path d="M4 4h16v16H4z"/><path d="M8 9l3 3-3 3"/><path d="M13 15h4"/>'
+};
+function uiIcon(name){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${UI_ICONS[name]||''}</svg>`;
+}
+
+/* ============================= NODE DEFINITIONS ============================= */
+// Every block in Flowbit is described here: category (drives colour + palette section),
+// fields (rendered as inputs in the node body), and inputs/outputs (drives wiring).
+// The execution engine (runChain, far below) has one matching branch per type.
+const NODE_DEFS = {
+  /* ---------------- Events ---------------- */
+  event:        { category:'event', title:'When Clicked', fields:[], hasInput:false, outputs:[{key:'out',label:''}] },
+  keyevent:     { category:'event', title:'When Key Pressed', fields:[{key:'key',type:'text',label:'Key',default:'space'}], hasInput:false, outputs:[{key:'out',label:''}] },
+  spriteclicked:{ category:'event', title:'When Sprite Clicked', fields:[], hasInput:false, outputs:[{key:'out',label:''}] },
+  onreceive:    { category:'event', title:'When I Receive', fields:[{key:'message',type:'text',label:'Msg',default:'message1'}], hasInput:false, outputs:[{key:'out',label:''}] },
+  broadcast:    { category:'event', title:'Broadcast', fields:[{key:'message',type:'text',label:'Msg',default:'message1'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  broadcastwait:{ category:'event', title:'Broadcast and Wait', fields:[{key:'message',type:'text',label:'Msg',default:'message1'}], hasInput:true, outputs:[{key:'out',label:''}] },
+
+  /* ---------------- Motion ---------------- */
+  move:         { category:'motion', title:'Move', fields:[{key:'steps',type:'number',label:'Steps',default:10}], hasInput:true, outputs:[{key:'out',label:''}] },
+  turn:         { category:'motion', title:'Turn', fields:[{key:'dir',type:'select',label:'',options:['Right','Left'],default:'Right'},{key:'deg',type:'number',label:'Deg',default:15}], hasInput:true, outputs:[{key:'out',label:''}] },
+  gotoxy:       { category:'motion', title:'Go To X/Y', fields:[{key:'x',type:'number',label:'X',default:0},{key:'y',type:'number',label:'Y',default:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  gotorandom:   { category:'motion', title:'Go To Random Position', fields:[], hasInput:true, outputs:[{key:'out',label:''}] },
+  gotomouse:    { category:'motion', title:'Go To Mouse Pointer', fields:[], hasInput:true, outputs:[{key:'out',label:''}] },
+  glide:        { category:'motion', title:'Glide To X/Y', fields:[{key:'x',type:'number',label:'X',default:0},{key:'y',type:'number',label:'Y',default:0},{key:'secs',type:'number',label:'Secs',default:1,step:0.1,min:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  pointdirection:{ category:'motion', title:'Point In Direction', fields:[{key:'deg',type:'number',label:'Deg',default:90}], hasInput:true, outputs:[{key:'out',label:''}] },
+  changexy:     { category:'motion', title:'Change X/Y By', fields:[{key:'dx',type:'number',label:'dX',default:0},{key:'dy',type:'number',label:'dY',default:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  setx:         { category:'motion', title:'Set X', fields:[{key:'x',type:'number',label:'X',default:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  sety:         { category:'motion', title:'Set Y', fields:[{key:'y',type:'number',label:'Y',default:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  edgebounce:   { category:'motion', title:'If On Edge, Bounce', fields:[], hasInput:true, outputs:[{key:'out',label:''}] },
+  motioninfo:   { category:'motion', title:'Motion Info', fields:[{key:'resultVar',type:'text',label:'Set',default:'xpos'},{key:'prop',type:'select',label:'',options:['X Position','Y Position','Direction'],default:'X Position'}], hasInput:true, outputs:[{key:'out',label:''}] },
+
+  /* ---------------- Looks ---------------- */
+  say:          { category:'looks', title:'Say', fields:[{key:'text',type:'text',label:'Text',default:'Hello!'},{key:'secs',type:'number',label:'Secs',default:0,step:0.1,min:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  think:        { category:'looks', title:'Think', fields:[{key:'text',type:'text',label:'Text',default:'Hmm...'},{key:'secs',type:'number',label:'Secs',default:0,step:0.1,min:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  sizeop:       { category:'looks', title:'Size', fields:[{key:'mode',type:'select',label:'',options:['Change by','Set to'],default:'Set to'},{key:'value',type:'number',label:'%',default:100}], hasInput:true, outputs:[{key:'out',label:''}] },
+  visibility:   { category:'looks', title:'Show/Hide', fields:[{key:'mode',type:'select',label:'',options:['Show','Hide'],default:'Show'}], hasInput:true, outputs:[{key:'out',label:''}] },
+
+  /* ---------------- Sound ---------------- */
+  playtone:     { category:'sound', title:'Play Tone', fields:[{key:'freq',type:'number',label:'Hz',default:440},{key:'secs',type:'number',label:'Secs',default:0.3,step:0.1,min:0.05}], hasInput:true, outputs:[{key:'out',label:''}] },
+  volumeop:     { category:'sound', title:'Volume', fields:[{key:'mode',type:'select',label:'',options:['Change by','Set to'],default:'Set to'},{key:'value',type:'number',label:'%',default:100}], hasInput:true, outputs:[{key:'out',label:''}] },
+  stopsounds:   { category:'sound', title:'Stop All Sounds', fields:[], hasInput:true, outputs:[{key:'out',label:''}] },
+  getvolume:    { category:'sound', title:'Get Volume', fields:[{key:'resultVar',type:'text',label:'Set',default:'volume'}], hasInput:true, outputs:[{key:'out',label:''}] },
+
+  /* ---------------- Control ---------------- */
+  wait:         { category:'control', title:'Wait', fields:[{key:'secs',type:'number',label:'Secs',default:1,step:0.1,min:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  repeat:       { category:'control', title:'Repeat', fields:[{key:'count',type:'number',label:'Times',default:3,min:1,max:50}], hasInput:true, outputs:[{key:'body',label:'Loop'},{key:'done',label:'Done'}] },
+  forever:      { category:'control', title:'Forever', fields:[], hasInput:true, outputs:[{key:'body',label:'Loop'},{key:'done',label:'(break)'}] },
+  breakloop:    { category:'control', title:'Break Loop', fields:[], hasInput:true, outputs:[] },
+  ifelse:       { category:'control', title:'If / Else', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'true',label:'True'},{key:'false',label:'False'}] },
+  waituntil:    { category:'control', title:'Wait Until', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  repeatuntil:  { category:'control', title:'Repeat Until', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'body',label:'Loop'},{key:'done',label:'Done'}] },
+  stopscript:   { category:'control', title:'Stop', fields:[{key:'scope',type:'select',label:'',options:['This Script','All'],default:'This Script'}], hasInput:true, outputs:[] },
+
+  /* ---------------- Sensing ---------------- */
+  askwait:      { category:'sensing', title:'Ask and Wait', fields:[{key:'prompt',type:'text',label:'Ask',default:'What\u2019s your name?'},{key:'resultVar',type:'text',label:'Set',default:'answer'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  keypressedq:  { category:'sensing', title:'Key Pressed?', fields:[{key:'key',type:'text',label:'Key',default:'space'},{key:'resultVar',type:'text',label:'Set',default:'pressed'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  mousedownq:   { category:'sensing', title:'Mouse Down?', fields:[{key:'resultVar',type:'text',label:'Set',default:'mouseDown'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  mouseinfo:    { category:'sensing', title:'Mouse Position', fields:[{key:'resultVar',type:'text',label:'Set',default:'mx'},{key:'axis',type:'select',label:'',options:['X','Y'],default:'X'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  timernode:    { category:'sensing', title:'Timer', fields:[{key:'resultVar',type:'text',label:'Set',default:'timer'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  resettimer:   { category:'sensing', title:'Reset Timer', fields:[], hasInput:true, outputs:[{key:'out',label:''}] },
+  touchingedgeq:{ category:'sensing', title:'Touching Edge?', fields:[{key:'resultVar',type:'text',label:'Set',default:'atEdge'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  currenttime:  { category:'sensing', title:'Current Time', fields:[{key:'resultVar',type:'text',label:'Set',default:'now'},{key:'unit',type:'select',label:'',options:['Hour','Minute','Second','Day','Month','Year'],default:'Hour'}], hasInput:true, outputs:[{key:'out',label:''}] },
+
+  /* ---------------- Operators ---------------- */
+  mathop:       { category:'operators', title:'Math', fields:[{key:'resultVar',type:'text',label:'Set',default:'result'},{key:'a',type:'text',label:'A',default:'0'},{key:'op',type:'select',label:'',options:['+','-','*','/','%'],default:'+'},{key:'b',type:'text',label:'B',default:'0'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  mathfunc:     { category:'operators', title:'Math Function', fields:[{key:'resultVar',type:'text',label:'Set',default:'result'},{key:'func',type:'select',label:'',options:['sqrt','abs','round','floor','ceil','sin','cos'],default:'sqrt'},{key:'a',type:'text',label:'A',default:'0'},{key:'b',type:'text',label:'B (min/max)',default:'0'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  boolop:       { category:'operators', title:'Boolean', fields:[{key:'resultVar',type:'text',label:'Set',default:'flag'},{key:'a',type:'text',label:'A',default:'true'},{key:'op',type:'select',label:'',options:['AND','OR','NOT'],default:'AND'},{key:'b',type:'text',label:'B',default:'true'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  textop:       { category:'operators', title:'Text', fields:[{key:'resultVar',type:'text',label:'Set',default:'text'},{key:'op',type:'select',label:'',options:['Join','Length','Contains','Substring','LetterAt'],default:'Join'},{key:'a',type:'text',label:'Text',default:'Hello'},{key:'b',type:'text',label:'B/Start/#',default:''},{key:'c',type:'text',label:'End (sub)',default:''}], hasInput:true, outputs:[{key:'out',label:''}] },
+  randomnum:    { category:'operators', title:'Pick Random', fields:[{key:'resultVar',type:'text',label:'Set',default:'rand'},{key:'min',type:'number',label:'Min',default:1},{key:'max',type:'number',label:'Max',default:10}], hasInput:true, outputs:[{key:'out',label:''}] },
+
+  /* ---------------- Variables ---------------- */
+  setvar:       { category:'variables', title:'Set Variable', fields:[{key:'name',type:'text',label:'Name',default:'score'},{key:'value',type:'text',label:'To',default:'0'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  changevar:    { category:'variables', title:'Change Variable', fields:[{key:'name',type:'text',label:'Name',default:'score'},{key:'delta',type:'number',label:'By',default:1}], hasInput:true, outputs:[{key:'out',label:''}] },
+
+  /* ---------------- Lists ---------------- */
+  listadd:      { category:'lists', title:'Add To List', fields:[{key:'list',type:'text',label:'List',default:'myList'},{key:'value',type:'text',label:'Value',default:''}], hasInput:true, outputs:[{key:'out',label:''}] },
+  listdelete:   { category:'lists', title:'Delete Item', fields:[{key:'list',type:'text',label:'List',default:'myList'},{key:'index',type:'number',label:'Index',default:1}], hasInput:true, outputs:[{key:'out',label:''}] },
+  listinsert:   { category:'lists', title:'Insert At', fields:[{key:'list',type:'text',label:'List',default:'myList'},{key:'index',type:'number',label:'Index',default:1},{key:'value',type:'text',label:'Value',default:''}], hasInput:true, outputs:[{key:'out',label:''}] },
+  listreplace:  { category:'lists', title:'Replace At', fields:[{key:'list',type:'text',label:'List',default:'myList'},{key:'index',type:'number',label:'Index',default:1},{key:'value',type:'text',label:'Value',default:''}], hasInput:true, outputs:[{key:'out',label:''}] },
+  listitemat:   { category:'lists', title:'Item At', fields:[{key:'list',type:'text',label:'List',default:'myList'},{key:'index',type:'number',label:'Index',default:1},{key:'resultVar',type:'text',label:'Set',default:'item'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  listlength:   { category:'lists', title:'Length Of List', fields:[{key:'list',type:'text',label:'List',default:'myList'},{key:'resultVar',type:'text',label:'Set',default:'count'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  listcontains: { category:'lists', title:'List Contains?', fields:[{key:'list',type:'text',label:'List',default:'myList'},{key:'value',type:'text',label:'Value',default:''},{key:'resultVar',type:'text',label:'Set',default:'found'}], hasInput:true, outputs:[{key:'out',label:''}] },
+
+  /* ---------------- Notes ---------------- */
+  comment:      { category:'note', title:'Note', fields:[{key:'text',type:'textarea',label:'',default:'Write a note\u2026'}], hasInput:false, outputs:[] }
+};
+
+const CATEGORY_LABELS = {
+  event:'Events', motion:'Motion', looks:'Looks', sound:'Sound', control:'Control',
+  sensing:'Sensing', operators:'Operators', variables:'Variables', lists:'Lists', note:'Notes'
+};
+const CATEGORY_ORDER = ['event','motion','looks','sound','control','sensing','operators','variables','lists','note'];
+
+/* ============================= STATE ============================= */
+let nodes = [];      // {id,type,x,y,data:{}}
+let edges = [];      // {id,from,fromPort,to}
+let nodeEls = {};    // id -> DOM el
+let selectedNodeId = null;
+let selectedEdgeId = null;
+let idCounter = 1;
+let scale = 1, panX = 220, panY = 140;
+let running = false;
+let stopRequested = false;
+let vars = {};
+let lists = {};
+let undoStack = [];
+let redoStack = [];
+let runStartTime = 0;
+let activeKeyHandler = null;
+let pendingAskResolve = null;
+let clipboard = null;
+let contextMenuNodeId = null;
+let activeFlowEdgeId = null; // the wire currently "lit up" because a node just sent flow along it
+
+// Sprite/stage state, in Scratch-style centred coordinates: x in [-120,120], y in [-90,90]
+const STAGE_W = 240, STAGE_H = 180;
+let spriteState = { x:0, y:0, direction:90, size:100, visible:true };
+let mouseStage = { x:0, y:0, down:false };
+let audioCtx = null;
+let activeOscillators = new Set();
+let masterVolume = 100;
+
+// Multi-touch pinch/pan tracking (used only for touch pointers)
+let activePointers = new Map();
+let pinchState = null;
+
+const canvasWrap = document.getElementById('canvasWrap');
+const canvasContent = document.getElementById('canvasContent');
+const nodesLayer = document.getElementById('nodesLayer');
+const wiresLayer = document.getElementById('wiresLayer');
+const paletteEl = document.getElementById('palette');
+const paletteBodyEl = document.getElementById('paletteBody');
+const paletteSearch = document.getElementById('paletteSearch');
+const consoleEl = document.getElementById('console');
+const varsListEl = document.getElementById('varsList');
+const listsPanelEl = document.getElementById('listsPanel');
+const stageEl = document.getElementById('stage');
+const spriteWrapEl = document.getElementById('spriteWrap');
+const bubbleEl = document.getElementById('speechBubble');
+const stageCoordsEl = document.getElementById('stageCoords');
+const runBtn = document.getElementById('runBtn');
+const stopBtn = document.getElementById('stopBtn');
+const clearBtn = document.getElementById('clearBtn');
+const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
+const duplicateBtn = document.getElementById('duplicateBtn');
+const fitBtn = document.getElementById('fitBtn');
+const saveBtn = document.getElementById('saveBtn');
+const loadBtn = document.getElementById('loadBtn');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const importFile = document.getElementById('importFile');
+const saveIndicator = document.getElementById('saveIndicator');
+const speedSlider = document.getElementById('speedSlider');
+const speedVal = document.getElementById('speedVal');
+const zoomInBtn = document.getElementById('zoomInBtn');
+const zoomOutBtn = document.getElementById('zoomOutBtn');
+const zoomLabel = document.getElementById('zoomLabel');
+const canvasEmptyState = document.getElementById('canvasEmptyState');
+const askModalOverlay = document.getElementById('askModalOverlay');
+const askModalText = document.getElementById('askModalText');
+const askModalInput = document.getElementById('askModalInput');
+const askModalSubmit = document.getElementById('askModalSubmit');
+const contextMenu = document.getElementById('contextMenu');
+const ctxDuplicate = document.getElementById('ctxDuplicate');
+const ctxDelete = document.getElementById('ctxDelete');
+const mobileBlocksFab = document.getElementById('mobileBlocksFab');
+const mobileDrawerBackdrop = document.getElementById('mobileDrawerBackdrop');
+const rightPanel = document.getElementById('rightPanel');
+
+function uid(prefix){ return prefix + (idCounter++); }
+function applyTransform(){
+  canvasContent.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  zoomLabel.textContent = Math.round(scale*100) + '%';
+}
+applyTransform();
+
+/* Fill in icons for buttons that were left empty in the markup */
+undoBtn.innerHTML = uiIcon('undo');
+redoBtn.innerHTML = uiIcon('redo');
+duplicateBtn.innerHTML = uiIcon('duplicate') + '<span>Duplicate</span>';
+fitBtn.innerHTML = uiIcon('fit') + '<span>Fit</span>';
+saveBtn.innerHTML = uiIcon('save');
+loadBtn.innerHTML = uiIcon('load');
+exportBtn.innerHTML = uiIcon('exportIcon');
+importBtn.innerHTML = uiIcon('importIcon');
+mobileBlocksFab.innerHTML = uiIcon('fab');
+ctxDuplicate.innerHTML = uiIcon('duplicate') + '<span>Duplicate</span>';
+ctxDelete.innerHTML = uiIcon('trash') + '<span>Delete</span>';
+document.querySelector('.mobile-tabbar button[data-tab="stage"]').innerHTML = uiIcon('stage') + '<span>Stage</span>';
+document.querySelector('.mobile-tabbar button[data-tab="vars"]').innerHTML = uiIcon('vars') + '<span>Vars</span>';
+document.querySelector('.mobile-tabbar button[data-tab="console"]').innerHTML = uiIcon('console') + '<span>Console</span>';
+
+/* ============================= PALETTE ============================= */
+CATEGORY_ORDER.forEach(cat=>{
+  const section = document.createElement('div');
+  section.className = 'pal-cat';
+  section.dataset.cat = cat;
+  const h = document.createElement('h2');
+  h.textContent = CATEGORY_LABELS[cat];
+  section.appendChild(h);
+  Object.entries(NODE_DEFS).forEach(([type,def])=>{
+    if(def.category !== cat) return;
+    const item = document.createElement('div');
+    item.className = `pal-item cat-${cat}`;
+    item.dataset.label = def.title.toLowerCase();
+    item.innerHTML = `<span class="pal-bar"></span><span class="pal-icon">${catIconSvg(cat)}</span><span>${def.title}</span>`;
+    item.addEventListener('pointerdown', (e)=> startPaletteDrag(e, type));
+    section.appendChild(item);
+  });
+  paletteBodyEl.appendChild(section);
+});
+
+paletteSearch.addEventListener('input', ()=>{
+  const q = paletteSearch.value.trim().toLowerCase();
+  document.querySelectorAll('.pal-item').forEach(item=>{
+    item.style.display = (!q || item.dataset.label.includes(q)) ? '' : 'none';
+  });
+  document.querySelectorAll('.pal-cat').forEach(sec=>{
+    const anyVisible = [...sec.querySelectorAll('.pal-item')].some(i=>i.style.display!=='none');
+    sec.classList.toggle('hidden', !anyVisible);
+  });
+});
+
+let paletteDrag = null;
+function startPaletteDrag(e, type){
+  e.preventDefault();
+  const ghost = document.createElement('div');
+  ghost.className = `node cat-${NODE_DEFS[type].category}`;
+  ghost.style.position='fixed';
+  ghost.style.pointerEvents='none';
+  ghost.style.opacity='0.85';
+  ghost.style.zIndex=999;
+  ghost.style.width='190px';
+  ghost.innerHTML = `<div class="node-head"><span class="node-icon">${catIconSvg(NODE_DEFS[type].category)}</span><span class="node-title">${NODE_DEFS[type].title}</span></div>`;
+  document.body.appendChild(ghost);
+  paletteDrag = {type, ghost};
+  positionGhost(e.clientX, e.clientY);
+  window.addEventListener('pointermove', onPaletteDragMove);
+  window.addEventListener('pointerup', onPaletteDragEnd);
+}
+function positionGhost(x,y){
+  paletteDrag.ghost.style.left = (x+8)+'px';
+  paletteDrag.ghost.style.top = (y+8)+'px';
+}
+function onPaletteDragMove(e){ positionGhost(e.clientX, e.clientY); }
+function onPaletteDragEnd(e){
+  window.removeEventListener('pointermove', onPaletteDragMove);
+  window.removeEventListener('pointerup', onPaletteDragEnd);
+  const wrapRect = canvasWrap.getBoundingClientRect();
+  if(e.clientX>wrapRect.left && e.clientX<wrapRect.right && e.clientY>wrapRect.top && e.clientY<wrapRect.bottom){
+    const pt = canvasPointFromClient(e.clientX, e.clientY);
+    pushHistory();
+    createNode(paletteDrag.type, pt.x-90, pt.y-24);
+    closeMobileDrawer();
+  }
+  paletteDrag.ghost.remove();
+  paletteDrag = null;
+}
+
+/* ============================= COORD HELPERS ============================= */
+function canvasPointFromClient(clientX, clientY){
+  const rect = canvasContent.getBoundingClientRect();
+  return { x:(clientX-rect.left)/scale, y:(clientY-rect.top)/scale };
+}
+
+/* ============================= NODE CREATION / RENDER ============================= */
+function createNode(type, x, y, presetData){
+  const def = NODE_DEFS[type];
+  const data = {};
+  def.fields.forEach(f=> data[f.key]=f.default);
+  if(presetData) Object.assign(data, presetData);
+  const node = { id: uid('n'), type, x, y, data };
+  nodes.push(node);
+  renderNode(node);
+  selectNode(node.id);
+  updateCanvasEmptyState();
+  return node;
+}
+
+function renderNode(node){
+  const def = NODE_DEFS[node.type];
+  const el = document.createElement('div');
+  el.className = `node cat-${def.category}`;
+  el.style.left = node.x+'px';
+  el.style.top = node.y+'px';
+  el.dataset.id = node.id;
+
+  const head = document.createElement('div');
+  head.className = 'node-head';
+  head.innerHTML = `<span class="node-icon">${catIconSvg(def.category)}</span><span class="node-title">${def.title}</span><span class="node-close">${uiIcon('trash')}</span>`;
+  head.addEventListener('pointerdown', (e)=>{
+    if(e.target.closest('.node-close')) return;
+    startNodeDrag(e, node);
+  });
+  head.querySelector('.node-close').addEventListener('pointerdown', e=>{
+    e.stopPropagation();
+    pushHistory();
+    deleteNode(node.id);
+  });
+  head.addEventListener('contextmenu', (e)=>{ e.preventDefault(); selectNode(node.id); openContextMenu(e.clientX, e.clientY, node.id); });
+  attachLongPress(head, node);
+  el.appendChild(head);
+
+  if(def.fields.length){
+    const body = document.createElement('div');
+    body.className = 'node-body';
+    def.fields.forEach(f=>{
+      const row = document.createElement('div');
+      row.className = 'field-row';
+      if(f.label) row.innerHTML = `<label>${f.label}</label>`;
+      let input;
+      if(f.type==='select'){
+        input = document.createElement('select');
+        f.options.forEach(o=>{
+          const opt = document.createElement('option');
+          opt.value=o; opt.textContent=o;
+          if(o===node.data[f.key]) opt.selected=true;
+          input.appendChild(opt);
+        });
+      } else if(f.type==='textarea'){
+        input = document.createElement('textarea');
+        input.rows = 3;
+        input.value = node.data[f.key];
+      } else {
+        input = document.createElement('input');
+        input.type = f.type==='number' ? 'number' : 'text';
+        if(f.step!==undefined) input.step=f.step;
+        if(f.min!==undefined) input.min=f.min;
+        if(f.max!==undefined) input.max=f.max;
+        input.value = node.data[f.key];
+      }
+      input.addEventListener('pointerdown', e=>e.stopPropagation());
+      const commit = ()=>{
+        pushHistory();
+        node.data[f.key] = f.type==='number' ? (parseFloat(input.value)||0) : input.value;
+      };
+      input.addEventListener('change', commit);
+      // On mobile, an on-screen keyboard can cover whatever field is being edited.
+      // Nudge the canvas up so the active field stays visible above the keyboard.
+      input.addEventListener('focusin', ()=> setTimeout(()=>ensureFieldVisible(input), 250));
+      row.appendChild(input);
+      body.appendChild(row);
+    });
+    el.appendChild(body);
+  } else {
+    const spacer = document.createElement('div');
+    spacer.style.height='4px';
+    el.appendChild(spacer);
+  }
+
+  if(def.hasInput){
+    const p = document.createElement('div');
+    p.className='port port-in';
+    p.dataset.node=node.id; p.dataset.port='in';
+    el.appendChild(p);
+    attachPortEvents(p, node.id, 'in', true);
+  }
+
+  const outCount = def.outputs.length;
+  def.outputs.forEach((o,i)=>{
+    const p = document.createElement('div');
+    p.className='port port-out';
+    p.dataset.node=node.id; p.dataset.port=o.key;
+    const pct = outCount===1 ? 50 : (i===0?32:68);
+    p.style.top = pct+'%';
+    p.style.transform='translateY(-50%)';
+    el.appendChild(p);
+    if(o.label){
+      const lbl = document.createElement('div');
+      lbl.className='port-label';
+      lbl.style.left='calc(100% + 3px)';
+      lbl.style.top = pct+'%';
+      lbl.textContent = o.label;
+      el.appendChild(lbl);
+    }
+    attachPortEvents(p, node.id, o.key, false);
+  });
+
+  el.addEventListener('pointerdown', ()=> selectNode(node.id));
+
+  nodesLayer.appendChild(el);
+  nodeEls[node.id] = el;
+}
+
+function deleteNode(id){
+  nodes = nodes.filter(n=>n.id!==id);
+  edges = edges.filter(e=> e.from!==id && e.to!==id);
+  if(nodeEls[id]){ nodeEls[id].remove(); delete nodeEls[id]; }
+  if(selectedNodeId===id) selectedNodeId=null;
+  drawWires();
+  updateCanvasEmptyState();
+}
+
+function selectNode(id){
+  if(selectedNodeId && nodeEls[selectedNodeId]) nodeEls[selectedNodeId].classList.remove('selected');
+  selectedNodeId = id;
+  selectedEdgeId = null;
+  if(id && nodeEls[id]) nodeEls[id].classList.add('selected');
+  drawWires();
+}
+
+function updateCanvasEmptyState(){
+  canvasEmptyState.classList.toggle('hide', nodes.length>0);
+}
+
+function refreshNodeFieldsDOM(node){
+  const def = NODE_DEFS[node.type];
+  const el = nodeEls[node.id];
+  if(!el) return;
+  const inputs = el.querySelectorAll('.field-row input, .field-row select, .field-row textarea');
+  def.fields.forEach((f,i)=>{ if(inputs[i]) inputs[i].value = node.data[f.key]; });
+}
+
+/* ============================= NODE DRAG ============================= */
+let dragCtx = null;
+function startNodeDrag(e, node){
+  if(pinchState) return; // a second finger just landed \u2014 let pinch handling own this gesture
+  e.stopPropagation();
+  selectNode(node.id);
+  const start = canvasPointFromClient(e.clientX, e.clientY);
+  dragCtx = { node, offX: start.x-node.x, offY: start.y-node.y, moved:false };
+  pushHistory();
+  window.addEventListener('pointermove', onNodeDragMove);
+  window.addEventListener('pointerup', onNodeDragEnd);
+}
+function onNodeDragMove(e){
+  if(!dragCtx || pinchState) return;
+  const p = canvasPointFromClient(e.clientX, e.clientY);
+  dragCtx.node.x = p.x - dragCtx.offX;
+  dragCtx.node.y = p.y - dragCtx.offY;
+  dragCtx.moved = true;
+  const el = nodeEls[dragCtx.node.id];
+  el.style.left = dragCtx.node.x+'px';
+  el.style.top = dragCtx.node.y+'px';
+  drawWires();
+}
+function onNodeDragEnd(){
+  // If nothing actually moved, drop the history snapshot we pre-emptively pushed
+  // (a tap that turns out to be a long-press shouldn't create an empty undo step).
+  if(dragCtx && !dragCtx.moved && undoStack.length) undoStack.pop();
+  dragCtx = null;
+  window.removeEventListener('pointermove', onNodeDragMove);
+  window.removeEventListener('pointerup', onNodeDragEnd);
+}
+
+/* Long-press on a node header opens the same context menu as a desktop right-click */
+function attachLongPress(headEl, node){
+  let timer = null, startPos = null, fired = false;
+  headEl.addEventListener('pointerdown', (e)=>{
+    if(e.pointerType!=='touch') return;
+    fired = false;
+    startPos = {x:e.clientX, y:e.clientY};
+    timer = setTimeout(()=>{
+      fired = true;
+      if(dragCtx) onNodeDragEnd();
+      openContextMenu(startPos.x, startPos.y, node.id);
+    }, 480);
+  });
+  const cancel = (e)=>{
+    if(timer){
+      if(e && e.clientX!==undefined && startPos){
+        const dx=e.clientX-startPos.x, dy=e.clientY-startPos.y;
+        if(Math.sqrt(dx*dx+dy*dy) > 10){ clearTimeout(timer); timer=null; }
+      }
+    }
+  };
+  headEl.addEventListener('pointermove', cancel);
+  headEl.addEventListener('pointerup', ()=>{ if(timer){ clearTimeout(timer); timer=null; } });
+  headEl.addEventListener('pointercancel', ()=>{ if(timer){ clearTimeout(timer); timer=null; } });
+}
+
+/* ============================= CONTEXT MENU ============================= */
+function openContextMenu(x,y,nodeId){
+  contextMenuNodeId = nodeId;
+  const menuW = 160, menuH = 90;
+  contextMenu.style.left = Math.min(x, window.innerWidth-menuW-8)+'px';
+  contextMenu.style.top = Math.min(y, window.innerHeight-menuH-8)+'px';
+  contextMenu.classList.add('show');
+}
+function closeContextMenu(){ contextMenu.classList.remove('show'); contextMenuNodeId=null; }
+document.addEventListener('pointerdown', (e)=>{ if(!contextMenu.contains(e.target)) closeContextMenu(); });
+ctxDuplicate.addEventListener('click', ()=>{ if(contextMenuNodeId) duplicateNode(contextMenuNodeId); closeContextMenu(); });
+ctxDelete.addEventListener('click', ()=>{ if(contextMenuNodeId){ pushHistory(); deleteNode(contextMenuNodeId); } closeContextMenu(); });
+
+/* ============================= WIRE CREATION ============================= */
+let wireDrag = null;
+function attachPortEvents(portEl, nodeId, portKey, isInput){
+  portEl.addEventListener('pointerdown', (e)=>{
+    e.stopPropagation();
+    if(isInput || pinchState) return; // wires start from outputs only, and never mid-pinch
+    const rect = portEl.getBoundingClientRect();
+    const start = canvasPointFromClient(rect.left+rect.width/2, rect.top+rect.height/2);
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('class','temp-wire');
+    wiresLayer.appendChild(path);
+    wireDrag = { fromNode:nodeId, fromPort:portKey, start, path };
+    window.addEventListener('pointermove', onWireDragMove);
+    window.addEventListener('pointerup', onWireDragEnd);
+  });
+}
+function bezier(x1,y1,x2,y2){
+  const dx = Math.max(60, Math.abs(x2-x1)*0.5);
+  return `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`;
+}
+function onWireDragMove(e){
+  if(!wireDrag) return;
+  const p = canvasPointFromClient(e.clientX, e.clientY);
+  wireDrag.path.setAttribute('d', bezier(wireDrag.start.x, wireDrag.start.y, p.x, p.y));
+}
+function onWireDragEnd(e){
+  window.removeEventListener('pointermove', onWireDragMove);
+  window.removeEventListener('pointerup', onWireDragEnd);
+  if(!wireDrag) return;
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  wireDrag.path.remove();
+  if(target && target.classList.contains('port-in')){
+    const toNode = target.dataset.node;
+    if(toNode !== wireDrag.fromNode){
+      pushHistory();
+      edges = edges.filter(ed => !(ed.to===toNode) && !(ed.from===wireDrag.fromNode && ed.fromPort===wireDrag.fromPort));
+      edges.push({ id: uid('e'), from: wireDrag.fromNode, fromPort: wireDrag.fromPort, to: toNode });
+      drawWires();
+    }
+  }
+  wireDrag = null;
+}
+
+/* ============================= WIRE RENDERING ============================= */
+const CAT_COLOR = {
+  event:'#ffb454', motion:'#4da3ff', looks:'#ff7ad9', sound:'#b98cff', control:'#ff9d4d',
+  sensing:'#5cd0e0', operators:'#33e2b0', variables:'#ff8f6b', lists:'#ff6f6f', note:'#8b909c'
+};
+function portCenter(nodeId, portKey){
+  const el = nodeEls[nodeId];
+  if(!el) return null;
+  const sel = portKey==='in' ? '.port-in' : `.port-out[data-port="${portKey}"]`;
+  const portEl = el.querySelector(sel);
+  if(!portEl) return null;
+  const r = portEl.getBoundingClientRect();
+  return canvasPointFromClient(r.left+r.width/2, r.top+r.height/2);
+}
+function drawWires(){
+  wiresLayer.innerHTML = '';
+  edges.forEach(edge=>{
+    const a = portCenter(edge.from, edge.fromPort);
+    const b = portCenter(edge.to, 'in');
+    if(!a||!b) return;
+    const node = nodes.find(n=>n.id===edge.from);
+    if(!node) return;
+    const color = CAT_COLOR[NODE_DEFS[node.type].category] || '#888';
+    const d = bezier(a.x,a.y,b.x,b.y);
+
+    const hit = document.createElementNS('http://www.w3.org/2000/svg','path');
+    hit.setAttribute('d', d);
+    hit.setAttribute('class','wire-hit');
+    hit.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); selectEdge(edge.id); });
+    wiresLayer.appendChild(hit);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', d);
+    path.setAttribute('class','wire'+(edge.id===selectedEdgeId?' selected':'')+(edge.id===activeFlowEdgeId?' active-flow':''));
+    path.setAttribute('stroke', color);
+    path.style.color = color;
+    if(edge.id===selectedEdgeId) path.style.filter = `drop-shadow(0 0 6px ${color})`;
+    wiresLayer.appendChild(path);
+  });
+}
+function selectEdge(id){
+  selectedEdgeId = id;
+  if(selectedNodeId && nodeEls[selectedNodeId]) nodeEls[selectedNodeId].classList.remove('selected');
+  selectedNodeId = null;
+  drawWires();
+}
+
+/* ============================= PAN + ZOOM (mouse) + PINCH (touch) ============================= */
+let panCtx = null;
+canvasWrap.addEventListener('pointerdown', (e)=>{
+  if(pinchState) return;
+  if(e.target !== canvasWrap && e.target !== canvasContent) return;
+  selectNode(null); selectedEdgeId=null; drawWires();
+  closeContextMenu();
+  panCtx = { startX:e.clientX, startY:e.clientY, panX0:panX, panY0:panY };
+  canvasWrap.classList.add('panning');
+  window.addEventListener('pointermove', onPanMove);
+  window.addEventListener('pointerup', onPanEnd);
+});
+function onPanMove(e){
+  if(!panCtx || pinchState) return;
+  panX = panCtx.panX0 + (e.clientX-panCtx.startX);
+  panY = panCtx.panY0 + (e.clientY-panCtx.startY);
+  applyTransform();
+}
+function onPanEnd(){
+  panCtx=null;
+  canvasWrap.classList.remove('panning');
+  window.removeEventListener('pointermove', onPanMove);
+  window.removeEventListener('pointerup', onPanEnd);
+}
+canvasWrap.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, e.deltaY<0 ? 1.08 : 0.93);
+}, {passive:false});
+function zoomAt(clientX, clientY, factor){
+  const rect = canvasWrap.getBoundingClientRect();
+  const cx = clientX-rect.left, cy = clientY-rect.top;
+  const pointX = (cx-panX)/scale, pointY=(cy-panY)/scale;
+  const newScale = Math.min(1.8, Math.max(0.4, scale*factor));
+  panX = cx - pointX*newScale;
+  panY = cy - pointY*newScale;
+  scale = newScale;
+  applyTransform();
+}
+zoomInBtn.addEventListener('click', ()=>{
+  const r = canvasWrap.getBoundingClientRect();
+  zoomAt(r.left+r.width/2, r.top+r.height/2, 1.15);
+});
+zoomOutBtn.addEventListener('click', ()=>{
+  const r = canvasWrap.getBoundingClientRect();
+  zoomAt(r.left+r.width/2, r.top+r.height/2, 0.87);
+});
+
+// Multi-touch pinch-to-zoom + two-finger pan. Tracked at the window level (capture phase)
+// so it keeps working even when the first finger lands on a node or a port, not just
+// empty canvas \u2014 any in-progress single-pointer drag/pan/wire is cancelled the moment
+// a second touch shows up.
+function ptDist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function ptMid(a,b){ return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; }
+window.addEventListener('pointerdown', (e)=>{
+  if(e.pointerType!=='touch') return;
+  activePointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+  if(activePointers.size===2){
+    if(dragCtx) onNodeDragEnd();
+    if(panCtx) onPanEnd();
+    if(wireDrag){ wireDrag.path.remove(); wireDrag=null; window.removeEventListener('pointermove', onWireDragMove); window.removeEventListener('pointerup', onWireDragEnd); }
+    const pts = [...activePointers.values()];
+    pinchState = { startDist: ptDist(pts[0],pts[1]), startScale: scale, startMid: ptMid(pts[0],pts[1]), startPanX: panX, startPanY: panY };
+  }
+}, {capture:true, passive:true});
+window.addEventListener('pointermove', (e)=>{
+  if(!activePointers.has(e.pointerId)) return;
+  activePointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+  if(activePointers.size===2 && pinchState){
+    const pts = [...activePointers.values()];
+    const newDist = ptDist(pts[0],pts[1]);
+    const newMid = ptMid(pts[0],pts[1]);
+    const rect = canvasWrap.getBoundingClientRect();
+    const midInWrap = { x: pinchState.startMid.x-rect.left, y: pinchState.startMid.y-rect.top };
+    const pointX = (midInWrap.x - pinchState.startPanX)/pinchState.startScale;
+    const pointY = (midInWrap.y - pinchState.startPanY)/pinchState.startScale;
+    const newScale = Math.min(1.8, Math.max(0.4, pinchState.startScale * (newDist/pinchState.startDist)));
+    const dx = newMid.x - pinchState.startMid.x, dy = newMid.y - pinchState.startMid.y;
+    scale = newScale;
+    panX = midInWrap.x - pointX*newScale + dx;
+    panY = midInWrap.y - pointY*newScale + dy;
+    applyTransform();
+  }
+}, {capture:true, passive:true});
+function releasePointer(e){
+  activePointers.delete(e.pointerId);
+  if(activePointers.size<2) pinchState = null;
+}
+window.addEventListener('pointerup', releasePointer, {capture:true});
+window.addEventListener('pointercancel', releasePointer, {capture:true});
+
+function zoomToFit(){
+  if(!nodes.length) return;
+  const rects = nodes.map(n=>{ const el=nodeEls[n.id]; const w=el.offsetWidth,h=el.offsetHeight; return {x:n.x,y:n.y,w,h}; });
+  const minX=Math.min(...rects.map(r=>r.x)), minY=Math.min(...rects.map(r=>r.y));
+  const maxX=Math.max(...rects.map(r=>r.x+r.w)), maxY=Math.max(...rects.map(r=>r.y+r.h));
+  const wrapRect = canvasWrap.getBoundingClientRect();
+  const pad=60;
+  const contentW = Math.max(1,maxX-minX+pad*2), contentH = Math.max(1,maxY-minY+pad*2);
+  const newScale = Math.min(1.5, Math.max(0.3, Math.min(wrapRect.width/contentW, wrapRect.height/contentH)));
+  scale = newScale;
+  panX = -minX*scale + pad*scale + (wrapRect.width-contentW*scale)/2;
+  panY = -minY*scale + pad*scale + (wrapRect.height-contentH*scale)/2;
+  applyTransform();
+}
+fitBtn.addEventListener('click', zoomToFit);
+
+/* On-screen-keyboard avoidance: when a field inside a node gets focus on a small
+   screen, shift the canvas pan so that field isn't hidden behind the keyboard. */
+function ensureFieldVisible(el){
+  if(window.innerWidth > 880) return; // desktop has no on-screen keyboard to dodge
+  const vv = window.visualViewport;
+  const visibleHeight = vv ? vv.height : window.innerHeight;
+  const rect = el.getBoundingClientRect();
+  if(rect.bottom > visibleHeight - 10){
+    const shift = rect.bottom - visibleHeight + 70;
+    panY -= shift;
+    applyTransform();
+  }
+}
+
+/* ============================= KEYBOARD SHORTCUTS ============================= */
+window.addEventListener('keydown', (e)=>{
+  const tag = document.activeElement.tagName;
+  const typing = (tag==='INPUT' || tag==='SELECT' || tag==='TEXTAREA');
+  if(!typing){
+    if(e.key==='Delete' || e.key==='Backspace'){
+      if(selectedNodeId){ pushHistory(); deleteNode(selectedNodeId); selectedNodeId=null; }
+      else if(selectedEdgeId){ pushHistory(); edges = edges.filter(ed=>ed.id!==selectedEdgeId); selectedEdgeId=null; drawWires(); }
+    }
+    if(e.key==='Escape'){ selectNode(null); selectedEdgeId=null; drawWires(); closeContextMenu(); }
+  }
+  if((e.ctrlKey||e.metaKey) && !typing){
+    if(e.key.toLowerCase()==='z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    else if(e.key.toLowerCase()==='y'){ e.preventDefault(); redo(); }
+    else if(e.key.toLowerCase()==='c'){ if(selectedNodeId){ const n=nodes.find(x=>x.id===selectedNodeId); clipboard={type:n.type,data:{...n.data}}; } }
+    else if(e.key.toLowerCase()==='v'){ pasteClipboard(); }
+    else if(e.key.toLowerCase()==='d'){ e.preventDefault(); if(selectedNodeId) duplicateNode(selectedNodeId); }
+  }
+});
+function pasteClipboard(){
+  if(!clipboard) return;
+  pushHistory();
+  const n = createNode(clipboard.type, 60, 60, clipboard.data);
+  const el = nodeEls[n.id];
+  if(el){ el.style.left=(n.x+30)+'px'; el.style.top=(n.y+30)+'px'; n.x+=30; n.y+=30; }
+  refreshNodeFieldsDOM(n);
+  selectNode(n.id);
+}
+function duplicateNode(nodeId){
+  const orig = nodes.find(n=>n.id===nodeId);
+  if(!orig) return;
+  pushHistory();
+  const n = createNode(orig.type, orig.x+30, orig.y+30, {...orig.data});
+  refreshNodeFieldsDOM(n);
+  selectNode(n.id);
+}
+duplicateBtn.addEventListener('click', ()=>{ if(selectedNodeId) duplicateNode(selectedNodeId); });
+
+/* ============================= MOBILE UI: DRAWER + TABS ============================= */
+function openMobileDrawer(){ paletteEl.classList.add('open'); mobileDrawerBackdrop.classList.add('show'); }
+function closeMobileDrawer(){ paletteEl.classList.remove('open'); mobileDrawerBackdrop.classList.remove('show'); }
+mobileBlocksFab.addEventListener('click', openMobileDrawer);
+mobileDrawerBackdrop.addEventListener('click', closeMobileDrawer);
+
+let rightPanelExpanded = false;
+function setMobileTab(tab){
+  rightPanel.classList.remove('tab-stage','tab-vars','tab-console');
+  rightPanel.classList.add('tab-'+tab);
+  document.querySelectorAll('.mobile-tabbar button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  if(!rightPanelExpanded){ rightPanel.classList.add('expanded'); rightPanelExpanded=true; }
+}
+document.querySelectorAll('.mobile-tabbar button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(rightPanelExpanded && rightPanel.classList.contains('tab-'+btn.dataset.tab)){
+      rightPanel.classList.remove('expanded');
+      rightPanelExpanded = false;
+    } else {
+      setMobileTab(btn.dataset.tab);
+    }
+  });
+});
+// Swipe left/right across the panel body to move between tabs, in addition to tapping
+const TAB_ORDER = ['stage','vars','console'];
+let swipeStartX = null;
+rightPanel.addEventListener('touchstart', (e)=>{ if(e.touches.length===1) swipeStartX = e.touches[0].clientX; }, {passive:true});
+rightPanel.addEventListener('touchend', (e)=>{
+  if(swipeStartX===null) return;
+  const dx = e.changedTouches[0].clientX - swipeStartX;
+  swipeStartX = null;
+  if(Math.abs(dx) < 50) return;
+  const current = TAB_ORDER.find(t=> rightPanel.classList.contains('tab-'+t));
+  let idx = TAB_ORDER.indexOf(current);
+  idx = dx < 0 ? Math.min(idx+1, TAB_ORDER.length-1) : Math.max(idx-1, 0);
+  setMobileTab(TAB_ORDER[idx]);
+}, {passive:true});
+
+/* ============================= CONSOLE FILTERS ============================= */
+let consoleFilter = 'all';
+document.querySelectorAll('.console-filters button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    consoleFilter = btn.dataset.filter;
+    document.querySelectorAll('.console-filters button').forEach(b=>b.classList.toggle('active', b===btn));
+    document.querySelectorAll('#console .line').forEach(line=>{
+      const show = consoleFilter==='all' || line.classList.contains(consoleFilter);
+      line.classList.toggle('hidden', !show);
+    });
+  });
+});
+
+/* ============================= CONSOLE / VARS / LISTS / STAGE HELPERS ============================= */
+function log(msg, cls){
+  const line = document.createElement('div');
+  line.className = 'line'+(cls?(' '+cls):'')+ (consoleFilter!=='all' && cls!==consoleFilter ? ' hidden' : '');
+  const time = new Date().toLocaleTimeString([], {hour12:false});
+  line.innerHTML = `<span class="t">${time}</span>${msg}`;
+  consoleEl.appendChild(line);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+function clearConsole(){ consoleEl.innerHTML=''; }
+
+function updateVarsPanel(changedKey){
+  const keys = Object.keys(vars);
+  if(!keys.length){ varsListEl.innerHTML = '<div class="empty-note">No variables yet.</div>'; }
+  else {
+    varsListEl.innerHTML = keys.map(k=>
+      `<div class="var-row" data-key="${k}"><span class="vname">${k}</span><span class="vval">${vars[k]}</span></div>`
+    ).join('');
+    if(changedKey){
+      const row = varsListEl.querySelector(`.var-row[data-key="${CSS.escape(String(changedKey))}"]`);
+      if(row) row.classList.add('flash');
+    }
+  }
+}
+function updateListsPanel(changedList){
+  const keys = Object.keys(lists);
+  if(!keys.length){ listsPanelEl.innerHTML = '<div class="empty-note">No lists yet.</div>'; }
+  else {
+    listsPanelEl.innerHTML = keys.map(k=>
+      `<div class="list-row" data-list="${k}"><span class="lname">${k} (${lists[k].length})</span><span class="litems">${lists[k].map(v=>String(v)).join(', ')||'\u2014'}</span></div>`
+    ).join('');
+    if(changedList){
+      const row = listsPanelEl.querySelector(`.list-row[data-list="${CSS.escape(String(changedList))}"]`);
+      if(row) row.classList.add('flash');
+    }
+  }
+}
+
+/* ---- Stage / sprite rendering (Scratch-style centred coords: x:[-120,120] y:[-90,90]) ---- */
+spriteWrapEl.innerHTML = `
+  <svg viewBox="-20 -20 40 40">
+    <defs><radialGradient id="spriteGrad" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#8fdcff"/><stop offset="100%" stop-color="#2f7fe0"/>
+    </radialGradient></defs>
+    <circle cx="0" cy="0" r="13" fill="url(#spriteGrad)" stroke="#1c5fb8" stroke-width="1.4"/>
+    <path d="M0,-17 L6,-7 L-6,-7 Z" fill="#eaf6ff"/>
+  </svg>`;
+function stageToPixel(x,y){
+  const w = stageEl.clientWidth, h = stageEl.clientHeight;
+  return { px: (x+STAGE_W/2)/STAGE_W * w, py: (STAGE_H/2-y)/STAGE_H * h };
+}
+function renderSprite(instant){
+  const {px,py} = stageToPixel(spriteState.x, spriteState.y);
+  spriteWrapEl.style.transition = instant ? 'none' : 'left .05s linear, top .05s linear';
+  spriteWrapEl.style.left = px+'px';
+  spriteWrapEl.style.top = py+'px';
+  spriteWrapEl.style.transform = `translate(-50%,-50%) rotate(${spriteState.direction}deg) scale(${spriteState.size/100})`;
+  spriteWrapEl.style.display = spriteState.visible ? '' : 'none';
+  bubbleEl.style.left = px+'px';
+  bubbleEl.style.top = py+'px';
+  stageCoordsEl.textContent = `x:${Math.round(spriteState.x)} y:${Math.round(spriteState.y)}`;
+}
+function showBubble(text, isThink, secs){
+  bubbleEl.textContent = text;
+  bubbleEl.className = isThink ? 'think show' : 'show';
+  clearTimeout(showBubble._t);
+  if(secs>0) showBubble._t = setTimeout(()=> bubbleEl.classList.remove('show'), secs*1000);
+  // secs===0 means "stays until the next Say/Think, or the run ends" \u2014 no timer set
+}
+function applyMove(steps){
+  const rad = spriteState.direction * Math.PI/180;
+  spriteState.x += steps*Math.sin(rad);
+  spriteState.y += steps*Math.cos(rad);
+  renderSprite();
+}
+function resetStage(){
+  spriteState = { x:0, y:0, direction:90, size:100, visible:true };
+  masterVolume = 100;
+  bubbleEl.classList.remove('show');
+  renderSprite(true);
+}
+stageEl.addEventListener('pointermove', (e)=>{
+  const rect = stageEl.getBoundingClientRect();
+  mouseStage.x = ((e.clientX-rect.left)/rect.width - 0.5) * STAGE_W;
+  mouseStage.y = (0.5 - (e.clientY-rect.top)/rect.height) * STAGE_H;
+});
+window.addEventListener('pointerdown', ()=> mouseStage.down = true);
+window.addEventListener('pointerup', ()=> mouseStage.down = false);
+
+/* ---- Sound: simple oscillator-based tones (no uploaded-audio system) ---- */
+function getAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function playTone(freq, secs){
+  try{
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = Math.max(20, freq);
+    gain.gain.value = Math.max(0, Math.min(1, masterVolume/100)) * 0.2;
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start();
+    activeOscillators.add(osc);
+    osc.stop(ctx.currentTime + Math.max(0.05, secs));
+    osc.addEventListener('ended', ()=> activeOscillators.delete(osc));
+  } catch(err){ /* Web Audio may be blocked until a user gesture \u2014 fail quietly */ }
+}
+function stopAllSounds(){
+  activeOscillators.forEach(o=>{ try{ o.stop(); }catch(e){} });
+  activeOscillators.clear();
+}
+
+/* ============================= UNDO / REDO HISTORY ============================= */
+const HISTORY_LIMIT = 60;
+function snapshot(){
+  return JSON.stringify({
+    nodes: nodes.map(n=>({id:n.id,type:n.type,x:n.x,y:n.y,data:n.data})),
+    edges: edges.map(e=>({id:e.id,from:e.from,fromPort:e.fromPort,to:e.to}))
+  });
+}
+function pushHistory(){
+  undoStack.push(snapshot());
+  if(undoStack.length>HISTORY_LIMIT) undoStack.shift();
+  redoStack = [];
+  updateHistoryButtons();
+}
+function updateHistoryButtons(){
+  undoBtn.disabled = undoStack.length===0;
+  redoBtn.disabled = redoStack.length===0;
+}
+function restoreSnapshot(data){
+  nodesLayer.innerHTML = '';
+  nodeEls = {};
+  nodes = [];
+  edges = (data.edges||[]).map(e=>({...e}));
+  (data.nodes||[]).forEach(nd=>{
+    const node = { id: nd.id, type: nd.type, x: nd.x, y: nd.y, data: {...nd.data} };
+    nodes.push(node);
+    renderNode(node);
+  });
+  // Keep future ids from colliding with anything in the restored graph
+  let maxId = 0;
+  [...nodes.map(n=>n.id), ...edges.map(e=>e.id)].forEach(id=>{
+    const m = String(id).match(/(\d+)$/);
+    if(m) maxId = Math.max(maxId, parseInt(m[1],10));
+  });
+  idCounter = maxId+1;
+  selectedNodeId = null; selectedEdgeId = null;
+  drawWires();
+  updateCanvasEmptyState();
+}
+function undo(){
+  if(!undoStack.length) return;
+  redoStack.push(snapshot());
+  const prev = undoStack.pop();
+  restoreSnapshot(JSON.parse(prev));
+  updateHistoryButtons();
+}
+function redo(){
+  if(!redoStack.length) return;
+  undoStack.push(snapshot());
+  const next = redoStack.pop();
+  restoreSnapshot(JSON.parse(next));
+  updateHistoryButtons();
+}
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+
+/* ============================= SAVE / LOAD / EXPORT / IMPORT ============================= */
+function showSaved(msg){
+  saveIndicator.textContent = msg;
+  clearTimeout(showSaved._t);
+  showSaved._t = setTimeout(()=> saveIndicator.textContent='', 2500);
+}
+saveBtn.addEventListener('click', ()=>{
+  try{
+    localStorage.setItem('flowbit_project', snapshot());
+    showSaved('Saved '+new Date().toLocaleTimeString([], {hour12:false}));
+    log('Project saved to this browser.', 'evt');
+  } catch(err){ log('Could not save: '+err.message, 'err'); }
+});
+loadBtn.addEventListener('click', ()=>{
+  const raw = localStorage.getItem('flowbit_project');
+  if(!raw){ log('No saved project found in this browser.', 'err'); return; }
+  if(!confirm('Load the saved project? This replaces everything on the canvas.')) return;
+  pushHistory();
+  restoreSnapshot(JSON.parse(raw));
+  showSaved('Loaded');
+  log('Project loaded.', 'evt');
+});
+exportBtn.addEventListener('click', ()=>{
+  const blob = new Blob([snapshot()], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'flowbit-project.json'; a.click();
+  URL.revokeObjectURL(url);
+  log('Exported flowbit-project.json', 'evt');
+});
+importBtn.addEventListener('click', ()=> importFile.click());
+importFile.addEventListener('change', ()=>{
+  const file = importFile.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(!confirm('Import this project? This replaces everything on the canvas.')){ importFile.value=''; return; }
+      pushHistory();
+      restoreSnapshot(data);
+      log('Project imported from '+file.name, 'evt');
+    } catch(err){ log('Import failed: file is not valid JSON.', 'err'); }
+    importFile.value = '';
+  };
+  reader.readAsText(file);
+});
+
+/* ============================= CLEAR / SPEED ============================= */
+clearBtn.addEventListener('click', ()=>{
+  if(running) return;
+  if(!nodes.length || confirm('Clear the whole canvas?')){
+    pushHistory();
+    nodes=[]; edges=[]; nodesLayer.innerHTML=''; nodeEls={}; selectedNodeId=null; selectedEdgeId=null;
+    drawWires();
+    updateCanvasEmptyState();
+  }
+});
+let speedMultiplier = 1;
+speedSlider.addEventListener('input', ()=>{
+  speedMultiplier = parseFloat(speedSlider.value);
+  speedVal.textContent = speedMultiplier+'x';
+});
+
+/* ============================= ASK AND WAIT MODAL ============================= */
+function askUser(promptText){
+  return new Promise(resolve=>{
+    pendingAskResolve = resolve;
+    askModalText.textContent = promptText;
+    askModalInput.value = '';
+    askModalOverlay.classList.add('show');
+    setTimeout(()=> askModalInput.focus(), 10);
+    function finish(value){
+      askModalOverlay.classList.remove('show');
+      askModalSubmit.removeEventListener('click', onSubmit);
+      askModalInput.removeEventListener('keydown', onKey);
+      pendingAskResolve = null;
+      resolve(value);
+    }
+    function onSubmit(){ finish(askModalInput.value); }
+    function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); onSubmit(); } }
+    askModalSubmit.addEventListener('click', onSubmit);
+    askModalInput.addEventListener('keydown', onKey);
+  });
+}
+
+/* ============================= EXECUTION HELPERS ============================= */
+function sleep(ms){ return new Promise(res=>setTimeout(res, ms/speedMultiplier)); }
+function rawSleep(ms){ return new Promise(res=>setTimeout(res, ms)); } // not affected by the speed slider
+function findEdge(fromId, portKey){ return edges.find(e=>e.from===fromId && e.fromPort===portKey); }
+function resolveVal(token){
+  if(token===undefined || token==='') return '';
+  const t = String(token).trim();
+  if(Object.prototype.hasOwnProperty.call(vars, t)) return vars[t];
+  const n = Number(t);
+  if(!isNaN(n) && t!=='') return n;
+  return t;
+}
+function resolveBool(token){
+  const v = resolveVal(token);
+  if(typeof v === 'boolean') return v;
+  if(typeof v === 'string') return v.trim().toLowerCase()==='true' || v==='1';
+  return !!v;
+}
+function compare(l,op,r){
+  const ln = Number(l), rn = Number(r);
+  const bothNum = !isNaN(ln) && !isNaN(rn) && l!=='' && r!=='';
+  const L = bothNum?ln:l, R = bothNum?rn:r;
+  switch(op){
+    case '>': return L>R;
+    case '<': return L<R;
+    case '=': return L==R;
+    case '\u2260': return L!=R;
+  }
+  return false;
+}
+function mathCompute(a,op,b){
+  const an=Number(a)||0, bn=Number(b)||0;
+  switch(op){
+    case '+': return an+bn;
+    case '-': return an-bn;
+    case '*': return an*bn;
+    case '/': return bn!==0 ? an/bn : 0;
+    case '%': return bn!==0 ? an%bn : 0;
+  }
+  return 0;
+}
+// Matches a configured key name (from a "When Key Pressed" node, or a Key-Pressed? check)
+// against a KeyboardEvent.key value. "space" is spelled out since a literal space is easy
+// to lose in a text field.
+function matchesKey(configured, actualKey){
+  const c = String(configured||'').trim().toLowerCase();
+  const a = String(actualKey||'').toLowerCase();
+  if(c==='space') return a===' ';
+  return c===a;
+}
+// Keys currently held down, tracked only while a program is running (see runProgram)
+let heldKeys = new Set();
+function trackKeyState(e, isDown){
+  if(isDown) heldKeys.add(e.key.toLowerCase()); else heldKeys.delete(e.key.toLowerCase());
+}
+
+// Thrown by a Break Loop node; caught by the nearest enclosing loop's own runChain call
+// so break only ever affects the loop directly around it, not outer loops.
+class BreakSignal extends Error {}
+// Thrown by a "Stop > This Script" node; caught at the top of whichever chain it started in,
+// so it only ends that one script (a "When Clicked"/key/broadcast chain), not the whole program.
+class StopScriptSignal extends Error {}
+
+/* Broadcast dispatcher: finds every "When I Receive" node listening for a message and
+   starts its chain. Returns the array of promises so "Broadcast and Wait" can await them. */
+function dispatchBroadcast(message){
+  const receivers = nodes.filter(n=> n.type==='onreceive' && String(n.data.message).trim()===String(message).trim());
+  log(`Broadcast: \u201c${message}\u201d (${receivers.length} receiver${receivers.length===1?'':'s'})`, 'evt');
+  return receivers.map(r=> runChain(r.id).catch(e=>{ if(!(e instanceof BreakSignal) && !(e instanceof StopScriptSignal)) throw e; }));
+}
+
+/* ============================= EXECUTION ENGINE ============================= */
+const STEP_MS = 380;
+let stepGuard = 0;
+const STEP_LIMIT = 6000;
+
+async function highlight(node){ const el = nodeEls[node.id]; if(el) el.classList.add('active'); }
+function unhighlight(node){ const el = nodeEls[node.id]; if(el) el.classList.remove('active'); }
+
+async function runChain(startNodeId){
+  let currentId = startNodeId;
+  while(currentId){
+    if(stopRequested) return;
+    if(++stepGuard > STEP_LIMIT){ log('Stopped: too many steps (possible infinite loop).', 'err'); return; }
+    const node = nodes.find(n=>n.id===currentId);
+    if(!node) return;
+    const def = NODE_DEFS[node.type];
+    if(!def){ return; }
+
+    if(nodeEls[node.id]) nodeEls[node.id].classList.remove('error');
+    await highlight(node);
+    await sleep(STEP_MS*0.35);
+
+    let nextId = null;
+    function goTo(portKey){
+      const e = findEdge(node.id, portKey);
+      nextId = e ? e.to : null;
+      activeFlowEdgeId = e ? e.id : null;
+      drawWires();
+    }
+
+    try{
+      switch(node.type){
+        /* ---- Motion ---- */
+        case 'move':
+          applyMove(Number(node.data.steps)||0);
+          log(`Move ${node.data.steps} steps`, 'act');
+          goTo('out'); break;
+        case 'turn': {
+          const delta = (node.data.dir==='Left' ? -1:1) * (Number(node.data.deg)||0);
+          spriteState.direction = ((spriteState.direction + delta) % 360 + 360) % 360;
+          renderSprite();
+          log(`Turn ${node.data.dir} ${node.data.deg}\u00b0`, 'act');
+          goTo('out'); break;
+        }
+        case 'gotoxy':
+          spriteState.x = Number(node.data.x)||0; spriteState.y = Number(node.data.y)||0;
+          renderSprite(true);
+          log(`Go to (${node.data.x}, ${node.data.y})`, 'act');
+          goTo('out'); break;
+        case 'gotorandom':
+          spriteState.x = (Math.random()*STAGE_W)-STAGE_W/2; spriteState.y = (Math.random()*STAGE_H)-STAGE_H/2;
+          renderSprite(true);
+          log('Go to random position', 'act');
+          goTo('out'); break;
+        case 'gotomouse':
+          spriteState.x = mouseStage.x; spriteState.y = mouseStage.y;
+          renderSprite(true);
+          log('Go to mouse pointer', 'act');
+          goTo('out'); break;
+        case 'glide': {
+          // Positioned by hand (rather than via renderSprite) so we can apply a
+          // duration-matched CSS transition instead of the default snap-into-place one.
+          const targetX=Number(node.data.x)||0, targetY=Number(node.data.y)||0, secs=Math.max(0,Number(node.data.secs)||0);
+          spriteState.x = targetX; spriteState.y = targetY;
+          const {px,py} = stageToPixel(spriteState.x, spriteState.y);
+          spriteWrapEl.style.transition = `left ${secs}s linear, top ${secs}s linear`;
+          spriteWrapEl.style.left = px+'px'; spriteWrapEl.style.top = py+'px';
+          bubbleEl.style.left = px+'px'; bubbleEl.style.top = py+'px';
+          stageCoordsEl.textContent = `x:${Math.round(spriteState.x)} y:${Math.round(spriteState.y)}`;
+          log(`Glide to (${targetX}, ${targetY}) over ${secs}s`, 'act');
+          await sleep(secs*1000);
+          spriteWrapEl.style.transition = 'left .05s linear, top .05s linear';
+          goTo('out'); break;
+        }
+        case 'pointdirection':
+          spriteState.direction = ((Number(node.data.deg)||0)%360+360)%360;
+          renderSprite();
+          log(`Point in direction ${node.data.deg}`, 'act');
+          goTo('out'); break;
+        case 'changexy':
+          spriteState.x += Number(node.data.dx)||0; spriteState.y += Number(node.data.dy)||0;
+          renderSprite(true);
+          goTo('out'); break;
+        case 'setx': spriteState.x = Number(node.data.x)||0; renderSprite(true); goTo('out'); break;
+        case 'sety': spriteState.y = Number(node.data.y)||0; renderSprite(true); goTo('out'); break;
+        case 'edgebounce': {
+          let bounced=false;
+          if(spriteState.x > STAGE_W/2){ spriteState.x=STAGE_W/2; spriteState.direction=(180-spriteState.direction+360)%360; bounced=true; }
+          else if(spriteState.x < -STAGE_W/2){ spriteState.x=-STAGE_W/2; spriteState.direction=(180-spriteState.direction+360)%360; bounced=true; }
+          if(spriteState.y > STAGE_H/2){ spriteState.y=STAGE_H/2; spriteState.direction=(360-spriteState.direction)%360; bounced=true; }
+          else if(spriteState.y < -STAGE_H/2){ spriteState.y=-STAGE_H/2; spriteState.direction=(360-spriteState.direction)%360; bounced=true; }
+          if(bounced){ renderSprite(true); log('Bounced off edge', 'act'); }
+          goTo('out'); break;
+        }
+        case 'motioninfo': {
+          const map = {'X Position':spriteState.x, 'Y Position':spriteState.y, 'Direction':spriteState.direction};
+          const val = Math.round(map[node.data.prop]*10)/10;
+          vars[node.data.resultVar]=val; updateVarsPanel(node.data.resultVar);
+          log(`Motion Info: ${node.data.resultVar} = ${val}`, 'var');
+          goTo('out'); break;
+        }
+
+        /* ---- Looks ---- */
+        case 'say': { const secs=Math.max(0,Number(node.data.secs)||0); showBubble(node.data.text,false,secs); log(`Say: \u201c${node.data.text}\u201d`, 'act'); goTo('out'); break; }
+        case 'think': { const secs=Math.max(0,Number(node.data.secs)||0); showBubble(node.data.text,true,secs); log(`Think: \u201c${node.data.text}\u201d`, 'act'); goTo('out'); break; }
+        case 'sizeop': {
+          const v=Number(node.data.value)||0;
+          spriteState.size = node.data.mode==='Change by' ? spriteState.size+v : v;
+          spriteState.size = Math.max(10, Math.min(400, spriteState.size));
+          renderSprite(true);
+          log(`Size ${node.data.mode==='Change by'?'changed by':'set to'} ${v}%`, 'act');
+          goTo('out'); break;
+        }
+        case 'visibility': spriteState.visible = node.data.mode==='Show'; renderSprite(true); log(node.data.mode, 'act'); goTo('out'); break;
+
+        /* ---- Sound ---- */
+        case 'playtone': playTone(Number(node.data.freq)||440, Number(node.data.secs)||0.3); log(`Play tone ${node.data.freq}Hz`, 'act'); goTo('out'); break;
+        case 'volumeop': {
+          const v=Number(node.data.value)||0;
+          masterVolume = node.data.mode==='Change by' ? masterVolume+v : v;
+          masterVolume = Math.max(0, Math.min(100, masterVolume));
+          log(`Volume ${node.data.mode==='Change by'?'changed by':'set to'} ${v}`, 'act');
+          goTo('out'); break;
+        }
+        case 'stopsounds': stopAllSounds(); log('Stopped all sounds', 'act'); goTo('out'); break;
+        case 'getvolume': vars[node.data.resultVar]=masterVolume; updateVarsPanel(node.data.resultVar); log(`Get Volume: ${node.data.resultVar} = ${masterVolume}`, 'var'); goTo('out'); break;
+
+        /* ---- Control ---- */
+        case 'wait':
+          log(`Wait ${node.data.secs}s`, 'act');
+          unhighlight(node);
+          await sleep(Math.max(0,Number(node.data.secs)||0)*1000);
+          await highlight(node);
+          goTo('out'); break;
+        case 'repeat': {
+          const count = Math.max(1, Math.min(50, Number(node.data.count)||1));
+          log(`Repeat ${count} times`, 'var');
+          const bodyStart = findEdge(node.id,'body')?.to;
+          for(let i=0;i<count;i++){
+            if(stopRequested) return;
+            if(bodyStart){
+              try{ await runChain(bodyStart); } catch(e){ if(e instanceof BreakSignal) break; throw e; }
+            }
+          }
+          goTo('done'); break;
+        }
+        case 'forever': {
+          let guardCount=0;
+          const bodyStart = findEdge(node.id,'body')?.to;
+          while(true){
+            if(stopRequested) return;
+            if(!bodyStart) break;
+            try{ await runChain(bodyStart); } catch(e){ if(e instanceof BreakSignal) break; throw e; }
+            if(++guardCount>2000){ log('Forever loop stopped: safety limit reached.', 'err'); break; }
+          }
+          goTo('done'); break;
+        }
+        case 'breakloop': log('Break Loop', 'var'); unhighlight(node); throw new BreakSignal();
+        case 'ifelse': {
+          const l=resolveVal(node.data.left), r=resolveVal(node.data.right);
+          const result = compare(l,node.data.op,r);
+          log(`If ${node.data.left} ${node.data.op} ${node.data.right} \u2192 ${result}`, 'var');
+          goTo(result?'true':'false'); break;
+        }
+        case 'waituntil': {
+          let guard=0;
+          while(true){
+            if(stopRequested) return;
+            const l=resolveVal(node.data.left), r=resolveVal(node.data.right);
+            if(compare(l,node.data.op,r)) break;
+            if(++guard>2000){ log('Wait Until gave up: condition never became true.', 'err'); break; }
+            await rawSleep(50);
+          }
+          goTo('out'); break;
+        }
+        case 'repeatuntil': {
+          let guardCount=0;
+          const bodyStart = findEdge(node.id,'body')?.to;
+          while(true){
+            if(stopRequested) return;
+            const l=resolveVal(node.data.left), r=resolveVal(node.data.right);
+            if(compare(l,node.data.op,r)) break; // Scratch semantics: stop once the condition is TRUE
+            if(!bodyStart) break;
+            try{ await runChain(bodyStart); } catch(e){ if(e instanceof BreakSignal) break; throw e; }
+            if(++guardCount>500){ log('Repeat Until stopped: safety limit reached.', 'err'); break; }
+          }
+          goTo('done'); break;
+        }
+        case 'stopscript': {
+          log(`Stop: ${node.data.scope}`, 'evt');
+          unhighlight(node);
+          if(node.data.scope==='All'){ stopRequested = true; return; }
+          throw new StopScriptSignal();
+        }
+
+        /* ---- Sensing ---- */
+        case 'askwait': {
+          log(`Ask: \u201c${node.data.prompt}\u201d`, 'act');
+          unhighlight(node);
+          const answer = await askUser(node.data.prompt);
+          await highlight(node);
+          vars[node.data.resultVar]=answer; updateVarsPanel(node.data.resultVar);
+          log(`Answer \u2192 ${node.data.resultVar} = \u201c${answer}\u201d`, 'var');
+          goTo('out'); break;
+        }
+        case 'keypressedq': {
+          const isPressed = [...heldKeys].some(k=> matchesKey(node.data.key, k));
+          vars[node.data.resultVar]=isPressed; updateVarsPanel(node.data.resultVar);
+          goTo('out'); break;
+        }
+        case 'mousedownq': vars[node.data.resultVar]=mouseStage.down; updateVarsPanel(node.data.resultVar); goTo('out'); break;
+        case 'mouseinfo': { const val=Math.round((node.data.axis==='X'?mouseStage.x:mouseStage.y)*10)/10; vars[node.data.resultVar]=val; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
+        case 'timernode': { const elapsed=Math.round(((Date.now()-runStartTime)/1000)*10)/10; vars[node.data.resultVar]=elapsed; updateVarsPanel(node.data.resultVar); log(`Timer: ${node.data.resultVar} = ${elapsed}s`, 'var'); goTo('out'); break; }
+        case 'resettimer': runStartTime = Date.now(); log('Timer reset', 'var'); goTo('out'); break;
+        case 'touchingedgeq': { const atEdge = Math.abs(spriteState.x)>=STAGE_W/2-0.5 || Math.abs(spriteState.y)>=STAGE_H/2-0.5; vars[node.data.resultVar]=atEdge; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
+        case 'currenttime': {
+          const now=new Date();
+          const map={Hour:now.getHours(),Minute:now.getMinutes(),Second:now.getSeconds(),Day:now.getDate(),Month:now.getMonth()+1,Year:now.getFullYear()};
+          vars[node.data.resultVar]=map[node.data.unit]; updateVarsPanel(node.data.resultVar);
+          goTo('out'); break;
+        }
+
+        /* ---- Operators ---- */
+        case 'mathop': {
+          const a=resolveVal(node.data.a), b=resolveVal(node.data.b);
+          const res=mathCompute(a,node.data.op,b);
+          vars[node.data.resultVar]=res; updateVarsPanel(node.data.resultVar);
+          log(`Math: ${node.data.resultVar} = ${node.data.a} ${node.data.op} ${node.data.b} = ${res}`, 'var');
+          goTo('out'); break;
+        }
+        case 'mathfunc': {
+          const a=Number(resolveVal(node.data.a)), b=Number(resolveVal(node.data.b));
+          let res;
+          switch(node.data.func){
+            case 'sqrt': res=Math.sqrt(a); break;
+            case 'abs': res=Math.abs(a); break;
+            case 'round': res=Math.round(a); break;
+            case 'floor': res=Math.floor(a); break;
+            case 'ceil': res=Math.ceil(a); break;
+            case 'sin': res=Math.sin(a*Math.PI/180); break;
+            case 'cos': res=Math.cos(a*Math.PI/180); break;
+          }
+          res = Math.round(res*10000)/10000;
+          vars[node.data.resultVar]=res; updateVarsPanel(node.data.resultVar);
+          log(`Math Function: ${node.data.resultVar} = ${node.data.func}(${node.data.a}) = ${res}`, 'var');
+          goTo('out'); break;
+        }
+        case 'boolop': {
+          const a=resolveBool(node.data.a);
+          let result;
+          if(node.data.op==='NOT') result = !a;
+          else { const b=resolveBool(node.data.b); result = node.data.op==='AND' ? (a&&b) : (a||b); }
+          vars[node.data.resultVar]=result; updateVarsPanel(node.data.resultVar);
+          log(`Boolean: ${node.data.resultVar} = ${result}`, 'var');
+          goTo('out'); break;
+        }
+        case 'textop': {
+          const a = String(resolveVal(node.data.a) ?? '');
+          const bRaw = resolveVal(node.data.b);
+          let res;
+          switch(node.data.op){
+            case 'Join': res = a + String(bRaw ?? ''); break;
+            case 'Length': res = a.length; break;
+            case 'Contains': res = a.includes(String(bRaw ?? '')); break;
+            case 'LetterAt': { const idx=(Number(bRaw)||1)-1; res = a.charAt(idx); break; }
+            case 'Substring': {
+              const start=Number(bRaw)||0;
+              const cRaw=node.data.c;
+              const end=(cRaw===''||cRaw===undefined)?undefined:Number(resolveVal(cRaw));
+              res = end===undefined ? a.substring(start) : a.substring(start,end);
+              break;
+            }
+          }
+          vars[node.data.resultVar]=res; updateVarsPanel(node.data.resultVar);
+          log(`Text: ${node.data.resultVar} = ${node.data.op}(\u2026) = ${res}`, 'var');
+          goTo('out'); break;
+        }
+        case 'randomnum': {
+          const lo=Math.min(Number(node.data.min),Number(node.data.max)), hi=Math.max(Number(node.data.min),Number(node.data.max));
+          const rnd=Math.floor(Math.random()*(hi-lo+1))+lo;
+          vars[node.data.resultVar]=rnd; updateVarsPanel(node.data.resultVar);
+          log(`Random: ${node.data.resultVar} = ${rnd}`, 'var');
+          goTo('out'); break;
+        }
+
+        /* ---- Variables ---- */
+        case 'setvar': vars[node.data.name]=resolveVal(node.data.value); updateVarsPanel(node.data.name); log(`Set ${node.data.name} = ${vars[node.data.name]}`, 'var'); goTo('out'); break;
+        case 'changevar': { const cur=Number(vars[node.data.name])||0; vars[node.data.name]=cur+(Number(node.data.delta)||0); updateVarsPanel(node.data.name); log(`Change ${node.data.name} by ${node.data.delta} \u2192 ${vars[node.data.name]}`, 'var'); goTo('out'); break; }
+
+        /* ---- Lists (1-based indices, matching Scratch's convention) ---- */
+        case 'listadd': { const key=node.data.list; if(!lists[key]) lists[key]=[]; lists[key].push(resolveVal(node.data.value)); updateListsPanel(key); log(`Added to ${key}`, 'var'); goTo('out'); break; }
+        case 'listdelete': { const key=node.data.list; const idx=(Number(node.data.index)||1)-1; if(lists[key] && idx>=0 && idx<lists[key].length) lists[key].splice(idx,1); updateListsPanel(key); goTo('out'); break; }
+        case 'listinsert': { const key=node.data.list; if(!lists[key]) lists[key]=[]; const idx=Math.max(0,Math.min(lists[key].length,(Number(node.data.index)||1)-1)); lists[key].splice(idx,0,resolveVal(node.data.value)); updateListsPanel(key); goTo('out'); break; }
+        case 'listreplace': { const key=node.data.list; if(!lists[key]) lists[key]=[]; const idx=(Number(node.data.index)||1)-1; if(idx>=0 && idx<lists[key].length) lists[key][idx]=resolveVal(node.data.value); updateListsPanel(key); goTo('out'); break; }
+        case 'listitemat': { const key=node.data.list; const idx=(Number(node.data.index)||1)-1; const val=(lists[key]&&idx>=0&&idx<lists[key].length)?lists[key][idx]:''; vars[node.data.resultVar]=val; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
+        case 'listlength': { const key=node.data.list; vars[node.data.resultVar]=(lists[key]||[]).length; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
+        case 'listcontains': { const key=node.data.list; const needle=resolveVal(node.data.value); const found=(lists[key]||[]).some(v=>String(v)===String(needle)); vars[node.data.resultVar]=found; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
+
+        /* ---- Events (pass-through: the interesting part already happened in runProgram) ---- */
+        case 'event': case 'keyevent': case 'spriteclicked': case 'onreceive':
+          goTo('out'); break;
+        case 'broadcast': dispatchBroadcast(node.data.message); goTo('out'); break;
+        case 'broadcastwait': await Promise.all(dispatchBroadcast(node.data.message)); goTo('out'); break;
+
+        default: goTo('out');
+      }
+    } catch(err){
+      if(err instanceof BreakSignal || err instanceof StopScriptSignal) throw err;
+      log(`Error in "${def.title}": ${err.message}`, 'err');
+      if(nodeEls[node.id]) nodeEls[node.id].classList.add('error');
+      unhighlight(node);
+      return;
+    }
+
+    unhighlight(node);
+    await sleep(STEP_MS*0.25);
+    currentId = nextId;
+  }
+}
+
+/* ============================= RUN / STOP ============================= */
+async function runProgram(){
+  if(running) return;
+  const events = nodes.filter(n=>n.type==='event');
+  const keyEvents = nodes.filter(n=>n.type==='keyevent');
+  const clickEvents = nodes.filter(n=>n.type==='spriteclicked');
+  if(!events.length && !keyEvents.length && !clickEvents.length){
+    log('Add a \u201cWhen Clicked\u201d, \u201cWhen Key Pressed\u201d, or \u201cWhen Sprite Clicked\u201d block to start.', 'err');
+    return;
+  }
+  running = true;
+  stopRequested = false;
+  stepGuard = 0;
+  vars = {}; lists = {}; heldKeys = new Set();
+  runStartTime = Date.now();
+  resetStage();
+  clearConsole();
+  updateVarsPanel(); updateListsPanel();
+  runBtn.disabled = true; stopBtn.disabled = false;
+
+  const onKeyDown = (e)=>{
+    trackKeyState(e, true);
+    const tag = document.activeElement.tagName;
+    if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return; // don't hijack typing into a node's own fields
+    keyEvents.forEach(kn=>{ if(matchesKey(kn.data.key, e.key)){ log(`Key pressed: ${kn.data.key}`, 'evt'); runChain(kn.id); } });
+  };
+  const onKeyUp = (e)=> trackKeyState(e, false);
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+
+  const onSpriteClick = ()=>{ log('Sprite clicked', 'evt'); clickEvents.forEach(cn=> runChain(cn.id)); };
+  spriteWrapEl.style.pointerEvents = clickEvents.length ? 'auto' : 'none';
+  if(clickEvents.length) spriteWrapEl.addEventListener('pointerdown', onSpriteClick);
+
+  try{
+    for(const ev of events){
+      if(stopRequested) break;
+      log('\u25b6 Program started', 'evt');
+      try{ await runChain(ev.id); }
+      catch(e){
+        if(e instanceof BreakSignal) log('Break Loop used outside of a loop \u2014 ignored.', 'err');
+        else if(!(e instanceof StopScriptSignal)) throw e;
+      }
+    }
+    // With no "When Clicked" chains left, stay active for key/sprite-click input until Stop is pressed
+    const stillListening = keyEvents.length || clickEvents.length;
+    if(stillListening && !stopRequested){
+      log('Listening for input (press Stop to end)', 'evt');
+      while(!stopRequested) await rawSleep(120);
+    }
+  } finally {
+    window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('keyup', onKeyUp);
+    if(clickEvents.length) spriteWrapEl.removeEventListener('pointerdown', onSpriteClick);
+    activeFlowEdgeId = null; drawWires();
+  }
+
+  if(!stopRequested) log('\u25a0 Finished', 'evt'); else log('\u25a0 Stopped', 'err');
+  running = false; runBtn.disabled = false; stopBtn.disabled = true;
+}
+runBtn.addEventListener('click', runProgram);
+stopBtn.addEventListener('click', ()=>{
+  stopRequested = true;
+  if(pendingAskResolve){ askModalOverlay.classList.remove('show'); const r=pendingAskResolve; pendingAskResolve=null; r(''); }
+});
+
+/* ============================= STARTER EXAMPLE ============================= */
+function seedExample(){
+  const n1 = createNode('event', 60, 60);
+  const n2 = createNode('say', 320, 10, {text:'Hello!'});
+  const n3 = createNode('setvar', 320, 150, {name:'score', value:'0'});
+  const n4 = createNode('repeat', 600, 90, {count:3});
+  const n5 = createNode('changevar', 860, 10, {name:'score', delta:1});
+  const n6 = createNode('move', 860, 140, {steps:10});
+  const n7 = createNode('say', 1140, 240, {text:'Done!'});
+
+  edges.push({id:uid('e'), from:n1.id, fromPort:'out', to:n2.id});
+  edges.push({id:uid('e'), from:n2.id, fromPort:'out', to:n3.id});
+  edges.push({id:uid('e'), from:n3.id, fromPort:'out', to:n4.id});
+  edges.push({id:uid('e'), from:n4.id, fromPort:'body', to:n5.id});
+  edges.push({id:uid('e'), from:n5.id, fromPort:'out', to:n6.id});
+  edges.push({id:uid('e'), from:n4.id, fromPort:'done', to:n7.id});
+  drawWires();
+  selectNode(null);
+  undoStack = []; redoStack = [];
+  updateHistoryButtons();
+  updateCanvasEmptyState();
+}
+seedExample();
+renderSprite(true);
+
+})();
+</script>
+</body>
+</html>
