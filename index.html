@@ -222,7 +222,7 @@
     background:linear-gradient(180deg,#151519,#111115);
     border:1px solid var(--border);border-left:3px solid var(--accent);
     border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.35);
-    user-select:none;z-index:2;
+    user-select:none;z-index:2;cursor:move;
   }
   .node.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent), 0 0 22px -2px var(--accent), 0 6px 18px rgba(0,0,0,.4);}
   .node.active{box-shadow:0 0 0 1px var(--accent), 0 0 28px 2px var(--accent), 0 6px 18px rgba(0,0,0,.4);animation:pulse .9s ease-in-out infinite;}
@@ -281,6 +281,11 @@
   .panel-section{padding:14px 16px;border-bottom:1px solid var(--border);}
   .panel-section h2{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--text-faint);margin:0 0 10px;font-weight:600;}
 
+  .stage-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .stage-head h2{margin:0;}
+  #stageFullscreenBtn{padding:5px 8px;background:transparent;border:1px solid var(--border-soft);}
+  #stageFullscreenBtn svg{width:13px;height:13px;}
+
   #stage{
     position:relative;width:100%;aspect-ratio:4/3;
     border-radius:10px;overflow:hidden;
@@ -288,8 +293,24 @@
     border:1px solid var(--border-soft);
     touch-action:none;
   }
+  /* Fullscreen mode is a CSS overlay rather than the browser Fullscreen API \u2014
+     the Fullscreen API is blocked or flaky inside in-app browsers (Instagram, etc.),
+     while this works everywhere since it's just positioning. */
+  #stage.fullscreen{
+    position:fixed;inset:16px;width:auto;height:auto;aspect-ratio:auto;
+    z-index:200;box-shadow:0 20px 60px rgba(0,0,0,.6);border-color:var(--motion);
+  }
+  #stageFullscreenExit{
+    display:none;position:fixed;inset:16px;z-index:201;pointer-events:none;
+  }
+  #stage.fullscreen ~ #stageFullscreenExit{display:block;}
+  #stageFullscreenExit button{
+    position:absolute;top:8px;right:8px;pointer-events:auto;padding:7px 10px;
+    background:rgba(10,10,14,.75);border-color:var(--border);
+  }
   #stage.dragmode{cursor:crosshair;}
-  #spriteWrap{position:absolute;left:50%;top:50%;width:36px;height:36px;transform-origin:center;pointer-events:none;}
+  #spriteWrap{position:absolute;left:50%;top:50%;width:36px;height:36px;transform-origin:center;cursor:grab;touch-action:none;}
+  #spriteWrap:active{cursor:grabbing;}
   #spriteWrap svg{width:100%;height:100%;overflow:visible;}
   #speechBubble{
     position:absolute;left:50%;top:50%;max-width:190px;background:#1c1c24;border:1px solid var(--border);
@@ -574,12 +595,16 @@
 
     <aside class="right-panel tab-stage" id="rightPanel">
       <div class="panel-section tab-stage-content">
-        <h2>Stage</h2>
+        <div class="stage-head">
+          <h2>Stage</h2>
+          <button id="stageFullscreenBtn" title="Fullscreen"></button>
+        </div>
         <div id="stage">
           <div id="speechBubble"></div>
           <div id="spriteWrap"></div>
           <div class="stage-coords" id="stageCoords">x:0 y:0</div>
         </div>
+        <div id="stageFullscreenExit"><button id="stageFullscreenExitBtn">&times; Exit Fullscreen</button></div>
       </div>
       <div class="panel-section tab-vars-content">
         <h2>Variables</h2>
@@ -678,6 +703,7 @@ function catIconSvg(cat){
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 const UI_ICONS = {
+  fullscreen: '<path d="M4 9V5a1 1 0 011-1h4M20 9V5a1 1 0 00-1-1h-4M4 15v4a1 1 0 001 1h4M20 15v4a1 1 0 01-1 1h-4"/>',
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a6 6 0 010 12h-1"/>',
   redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9a6 6 0 000 12h1"/>',
   duplicate: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/>',
@@ -722,6 +748,7 @@ const NODE_DEFS = {
   sety:         { category:'motion', title:'Set Y', fields:[{key:'y',type:'number',label:'Y',default:0}], hasInput:true, outputs:[{key:'out',label:''}] },
   edgebounce:   { category:'motion', title:'If On Edge, Bounce', fields:[], hasInput:true, outputs:[{key:'out',label:''}] },
   motioninfo:   { category:'motion', title:'Motion Info', fields:[{key:'resultVar',type:'text',label:'Set',default:'xpos'},{key:'prop',type:'select',label:'',options:['X Position','Y Position','Direction'],default:'X Position'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  pointtomouse: { category:'motion', title:'Point Towards Mouse', fields:[], hasInput:true, outputs:[{key:'out',label:''}] },
 
   /* ---------------- Looks ---------------- */
   say:          { category:'looks', title:'Say', fields:[{key:'text',type:'text',label:'Text',default:'Hello!'},{key:'secs',type:'number',label:'Secs',default:0,step:0.1,min:0}], hasInput:true, outputs:[{key:'out',label:''}] },
@@ -737,12 +764,13 @@ const NODE_DEFS = {
 
   /* ---------------- Control ---------------- */
   wait:         { category:'control', title:'Wait', fields:[{key:'secs',type:'number',label:'Secs',default:1,step:0.1,min:0}], hasInput:true, outputs:[{key:'out',label:''}] },
+  waitrandom:   { category:'control', title:'Wait Random', fields:[{key:'min',type:'number',label:'Min',default:0.5,step:0.1,min:0},{key:'max',type:'number',label:'Max',default:2,step:0.1,min:0}], hasInput:true, outputs:[{key:'out',label:''}] },
   repeat:       { category:'control', title:'Repeat', fields:[{key:'count',type:'number',label:'Times',default:3,min:1,max:50}], hasInput:true, outputs:[{key:'body',label:'Loop'},{key:'done',label:'Done'}] },
   forever:      { category:'control', title:'Forever', fields:[], hasInput:true, outputs:[{key:'body',label:'Loop'},{key:'done',label:'(break)'}] },
   breakloop:    { category:'control', title:'Break Loop', fields:[], hasInput:true, outputs:[] },
-  ifelse:       { category:'control', title:'If / Else', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'true',label:'True'},{key:'false',label:'False'}] },
-  waituntil:    { category:'control', title:'Wait Until', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'out',label:''}] },
-  repeatuntil:  { category:'control', title:'Repeat Until', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'body',label:'Loop'},{key:'done',label:'Done'}] },
+  ifelse:       { category:'control', title:'If / Else', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>',hint:'\u2260 means "not equal to"'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'true',label:'True'},{key:'false',label:'False'}] },
+  waituntil:    { category:'control', title:'Wait Until', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>',hint:'\u2260 means "not equal to"'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  repeatuntil:  { category:'control', title:'Repeat Until', fields:[{key:'left',type:'text',label:'If',default:'score'},{key:'op',type:'select',label:'',options:['>','<','=','\u2260'],default:'>',hint:'\u2260 means "not equal to"'},{key:'right',type:'text',label:'',default:'0'}], hasInput:true, outputs:[{key:'body',label:'Loop'},{key:'done',label:'Done'}] },
   stopscript:   { category:'control', title:'Stop', fields:[{key:'scope',type:'select',label:'',options:['This Script','All'],default:'This Script'}], hasInput:true, outputs:[] },
 
   /* ---------------- Sensing ---------------- */
@@ -752,14 +780,15 @@ const NODE_DEFS = {
   mouseinfo:    { category:'sensing', title:'Mouse Position', fields:[{key:'resultVar',type:'text',label:'Set',default:'mx'},{key:'axis',type:'select',label:'',options:['X','Y'],default:'X'}], hasInput:true, outputs:[{key:'out',label:''}] },
   timernode:    { category:'sensing', title:'Timer', fields:[{key:'resultVar',type:'text',label:'Set',default:'timer'}], hasInput:true, outputs:[{key:'out',label:''}] },
   resettimer:   { category:'sensing', title:'Reset Timer', fields:[], hasInput:true, outputs:[{key:'out',label:''}] },
+  distancetomouse:{ category:'sensing', title:'Distance To Mouse', fields:[{key:'resultVar',type:'text',label:'Set',default:'dist'}], hasInput:true, outputs:[{key:'out',label:''}] },
   touchingedgeq:{ category:'sensing', title:'Touching Edge?', fields:[{key:'resultVar',type:'text',label:'Set',default:'atEdge'}], hasInput:true, outputs:[{key:'out',label:''}] },
   currenttime:  { category:'sensing', title:'Current Time', fields:[{key:'resultVar',type:'text',label:'Set',default:'now'},{key:'unit',type:'select',label:'',options:['Hour','Minute','Second','Day','Month','Year'],default:'Hour'}], hasInput:true, outputs:[{key:'out',label:''}] },
 
   /* ---------------- Operators ---------------- */
   mathop:       { category:'operators', title:'Math', fields:[{key:'resultVar',type:'text',label:'Set',default:'result'},{key:'a',type:'text',label:'A',default:'0'},{key:'op',type:'select',label:'',options:['+','-','*','/','%'],default:'+'},{key:'b',type:'text',label:'B',default:'0'}], hasInput:true, outputs:[{key:'out',label:''}] },
-  mathfunc:     { category:'operators', title:'Math Function', fields:[{key:'resultVar',type:'text',label:'Set',default:'result'},{key:'func',type:'select',label:'',options:['sqrt','abs','round','floor','ceil','sin','cos'],default:'sqrt'},{key:'a',type:'text',label:'A',default:'0'},{key:'b',type:'text',label:'B (min/max)',default:'0'}], hasInput:true, outputs:[{key:'out',label:''}] },
-  boolop:       { category:'operators', title:'Boolean', fields:[{key:'resultVar',type:'text',label:'Set',default:'flag'},{key:'a',type:'text',label:'A',default:'true'},{key:'op',type:'select',label:'',options:['AND','OR','NOT'],default:'AND'},{key:'b',type:'text',label:'B',default:'true'}], hasInput:true, outputs:[{key:'out',label:''}] },
-  textop:       { category:'operators', title:'Text', fields:[{key:'resultVar',type:'text',label:'Set',default:'text'},{key:'op',type:'select',label:'',options:['Join','Length','Contains','Substring','LetterAt'],default:'Join'},{key:'a',type:'text',label:'Text',default:'Hello'},{key:'b',type:'text',label:'B/Start/#',default:''},{key:'c',type:'text',label:'End (sub)',default:''}], hasInput:true, outputs:[{key:'out',label:''}] },
+  mathfunc:     { category:'operators', title:'Math Function', fields:[{key:'resultVar',type:'text',label:'Set',default:'result'},{key:'func',type:'select',label:'',options:['sqrt','abs','round','floor','ceil','sin','cos'],default:'sqrt'},{key:'a',type:'text',label:'A',default:'0'},{key:'b',type:'text',label:'B (min/max)',default:'0',hint:'Only used when Function is set to min or max'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  boolop:       { category:'operators', title:'Boolean', fields:[{key:'resultVar',type:'text',label:'Set',default:'flag'},{key:'a',type:'text',label:'A',default:'true'},{key:'op',type:'select',label:'',options:['AND','OR','NOT'],default:'AND',hint:'NOT only looks at A and ignores B'},{key:'b',type:'text',label:'B',default:'true'}], hasInput:true, outputs:[{key:'out',label:''}] },
+  textop:       { category:'operators', title:'Text', fields:[{key:'resultVar',type:'text',label:'Set',default:'text'},{key:'op',type:'select',label:'',options:['Join','Length','Contains','Substring','LetterAt'],default:'Join'},{key:'a',type:'text',label:'Text',default:'Hello'},{key:'b',type:'text',label:'B/Start/#',default:'',hint:'Join: 2nd text. Contains: text to find. Substring: start position. LetterAt: letter number.'},{key:'c',type:'text',label:'End (sub)',default:'',hint:'Substring only: where to stop. Leave blank to go to the end.'}], hasInput:true, outputs:[{key:'out',label:''}] },
   randomnum:    { category:'operators', title:'Pick Random', fields:[{key:'resultVar',type:'text',label:'Set',default:'rand'},{key:'min',type:'number',label:'Min',default:1},{key:'max',type:'number',label:'Max',default:10}], hasInput:true, outputs:[{key:'out',label:''}] },
 
   /* ---------------- Variables ---------------- */
@@ -984,10 +1013,6 @@ function renderNode(node){
   const head = document.createElement('div');
   head.className = 'node-head';
   head.innerHTML = `<span class="node-icon">${catIconSvg(def.category)}</span><span class="node-title">${def.title}</span><span class="node-close">${uiIcon('trash')}</span>`;
-  head.addEventListener('pointerdown', (e)=>{
-    if(e.target.closest('.node-close')) return;
-    startNodeDrag(e, node);
-  });
   head.querySelector('.node-close').addEventListener('pointerdown', e=>{
     e.stopPropagation();
     pushHistory();
@@ -1026,6 +1051,7 @@ function renderNode(node){
         input.value = node.data[f.key];
       }
       input.addEventListener('pointerdown', e=>e.stopPropagation());
+      if(f.hint) input.title = f.hint;
       const commit = ()=>{
         pushHistory();
         node.data[f.key] = f.type==='number' ? (parseFloat(input.value)||0) : input.value;
@@ -1073,7 +1099,13 @@ function renderNode(node){
     attachPortEvents(p, node.id, o.key, false);
   });
 
-  el.addEventListener('pointerdown', ()=> selectNode(node.id));
+  // Fields, ports, and the close button all stopPropagation on their own pointerdown,
+  // so this only ever fires for clicks on the node's "background" \u2014 header, body
+  // padding, gaps between fields \u2014 which is exactly where a drag should be able to start.
+  el.addEventListener('pointerdown', (e)=>{
+    selectNode(node.id);
+    startNodeDrag(e, node);
+  });
 
   nodesLayer.appendChild(el);
   nodeEls[node.id] = el;
@@ -1572,13 +1604,17 @@ function updateListsPanel(changedList){
 }
 
 /* ---- Stage / sprite rendering (Scratch-style centred coords: x:[-120,120] y:[-90,90]) ---- */
+// A rounded dart shape (like a compass needle) instead of a plain circle, so its
+// facing direction is actually visible once it rotates \u2014 plus two eye dots for character.
 spriteWrapEl.innerHTML = `
   <svg viewBox="-20 -20 40 40">
-    <defs><radialGradient id="spriteGrad" cx="35%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#8fdcff"/><stop offset="100%" stop-color="#2f7fe0"/>
+    <defs><radialGradient id="spriteGrad" cx="35%" cy="25%" r="75%">
+      <stop offset="0%" stop-color="#9fe6ff"/><stop offset="100%" stop-color="#2f7fe0"/>
     </radialGradient></defs>
-    <circle cx="0" cy="0" r="13" fill="url(#spriteGrad)" stroke="#1c5fb8" stroke-width="1.4"/>
-    <path d="M0,-17 L6,-7 L-6,-7 Z" fill="#eaf6ff"/>
+    <path d="M0,-17 C9,-6 15,10 10,17 C6,13 -6,13 -10,17 C-15,10 -9,-6 0,-17 Z"
+          fill="url(#spriteGrad)" stroke="#1c5fb8" stroke-width="1.4" stroke-linejoin="round"/>
+    <circle cx="-4" cy="-3" r="2.1" fill="#0c2b4d"/>
+    <circle cx="4" cy="-3" r="2.1" fill="#0c2b4d"/>
   </svg>`;
 function stageToPixel(x,y){
   const w = stageEl.clientWidth, h = stageEl.clientHeight;
@@ -1614,13 +1650,61 @@ function resetStage(){
   bubbleEl.classList.remove('show');
   renderSprite(true);
 }
-stageEl.addEventListener('pointermove', (e)=>{
+function clientToStageCoords(clientX, clientY){
   const rect = stageEl.getBoundingClientRect();
-  mouseStage.x = ((e.clientX-rect.left)/rect.width - 0.5) * STAGE_W;
-  mouseStage.y = (0.5 - (e.clientY-rect.top)/rect.height) * STAGE_H;
+  let x = ((clientX-rect.left)/rect.width - 0.5) * STAGE_W;
+  let y = (0.5 - (clientY-rect.top)/rect.height) * STAGE_H;
+  return { x: Math.max(-STAGE_W/2, Math.min(STAGE_W/2, x)), y: Math.max(-STAGE_H/2, Math.min(STAGE_H/2, y)) };
+}
+stageEl.addEventListener('pointermove', (e)=>{
+  const p = clientToStageCoords(e.clientX, e.clientY);
+  mouseStage.x = p.x; mouseStage.y = p.y;
 });
 window.addEventListener('pointerdown', ()=> mouseStage.down = true);
 window.addEventListener('pointerup', ()=> mouseStage.down = false);
+
+/* ---- Drag the sprite directly on the stage to reposition it (works whether or not
+   a program is running). A tap with no real movement still fires "When Sprite Clicked". */
+let spriteDrag = null;
+spriteWrapEl.addEventListener('pointerdown', (e)=>{
+  e.stopPropagation();
+  spriteDrag = { startX:e.clientX, startY:e.clientY, moved:false };
+  window.addEventListener('pointermove', onSpriteDragMove);
+  window.addEventListener('pointerup', onSpriteDragEnd);
+});
+function onSpriteDragMove(e){
+  if(!spriteDrag) return;
+  const dx = e.clientX-spriteDrag.startX, dy = e.clientY-spriteDrag.startY;
+  if(!spriteDrag.moved && Math.hypot(dx,dy) > 5) spriteDrag.moved = true;
+  if(spriteDrag.moved){
+    const p = clientToStageCoords(e.clientX, e.clientY);
+    spriteState.x = p.x; spriteState.y = p.y;
+    renderSprite(true);
+  }
+}
+function onSpriteDragEnd(){
+  window.removeEventListener('pointermove', onSpriteDragMove);
+  window.removeEventListener('pointerup', onSpriteDragEnd);
+  if(spriteDrag && !spriteDrag.moved && running){
+    const clickEvents = nodes.filter(n=>n.type==='spriteclicked');
+    if(clickEvents.length){ log('Sprite clicked', 'evt'); clickEvents.forEach(cn=> runChain(cn.id)); }
+  }
+  spriteDrag = null;
+}
+
+/* ---- Stage fullscreen: a CSS overlay, not the browser Fullscreen API, since that
+   API is commonly blocked inside in-app browsers (Instagram, etc.) \u2014 this works
+   everywhere because it's just positioning, not a privileged browser mode. */
+const stageFullscreenBtn = document.getElementById('stageFullscreenBtn');
+const stageFullscreenExitBtn = document.getElementById('stageFullscreenExitBtn');
+stageFullscreenBtn.innerHTML = uiIcon('fullscreen');
+function setStageFullscreen(on){
+  stageEl.classList.toggle('fullscreen', on);
+  document.body.style.overflow = on ? 'hidden' : '';
+}
+stageFullscreenBtn.addEventListener('click', ()=> setStageFullscreen(true));
+stageFullscreenExitBtn.addEventListener('click', ()=> setStageFullscreen(false));
+window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && stageEl.classList.contains('fullscreen')) setStageFullscreen(false); });
 
 /* ---- Sound: simple oscillator-based tones (no uploaded-audio system) ---- */
 function getAudioCtx(){
@@ -2210,6 +2294,15 @@ async function runChain(startNodeId){
           log(`Motion Info: ${node.data.resultVar} = ${val}`, 'var');
           goTo('out'); break;
         }
+        case 'pointtomouse': {
+          const dx = mouseStage.x - spriteState.x, dy = mouseStage.y - spriteState.y;
+          // atan2 gives angle from due-right, measured counter-clockwise; converting to
+          // Scratch's convention (0=up, clockwise) needs a 90\u00b0 offset and a flip.
+          spriteState.direction = ((90 - Math.atan2(dy,dx)*180/Math.PI) % 360 + 360) % 360;
+          renderSprite();
+          log('Point towards mouse', 'act');
+          goTo('out'); break;
+        }
 
         /* ---- Looks ---- */
         case 'say': { const secs=Math.max(0,Number(node.data.secs)||0); showBubble(node.data.text,false,secs); log(`Say: \u201c${node.data.text}\u201d`, 'act'); goTo('out'); break; }
@@ -2243,6 +2336,15 @@ async function runChain(startNodeId){
           await sleep(Math.max(0,Number(node.data.secs)||0)*1000);
           await highlight(node);
           goTo('out'); break;
+        case 'waitrandom': {
+          const lo=Math.min(Number(node.data.min),Number(node.data.max)), hi=Math.max(Number(node.data.min),Number(node.data.max));
+          const secs = lo + Math.random()*(hi-lo);
+          log(`Wait Random: ${secs.toFixed(2)}s`, 'act');
+          unhighlight(node);
+          await sleep(secs*1000);
+          await highlight(node);
+          goTo('out'); break;
+        }
         case 'repeat': {
           const count = Math.max(1, Math.min(50, Number(node.data.count)||1));
           log(`Repeat ${count} times`, 'var');
@@ -2323,6 +2425,11 @@ async function runChain(startNodeId){
         case 'mouseinfo': { const val=Math.round((node.data.axis==='X'?mouseStage.x:mouseStage.y)*10)/10; vars[node.data.resultVar]=val; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
         case 'timernode': { const elapsed=Math.round(((Date.now()-runStartTime)/1000)*10)/10; vars[node.data.resultVar]=elapsed; updateVarsPanel(node.data.resultVar); log(`Timer: ${node.data.resultVar} = ${elapsed}s`, 'var'); goTo('out'); break; }
         case 'resettimer': runStartTime = Date.now(); log('Timer reset', 'var'); goTo('out'); break;
+        case 'distancetomouse': {
+          const d = Math.round(Math.hypot(mouseStage.x-spriteState.x, mouseStage.y-spriteState.y)*10)/10;
+          vars[node.data.resultVar]=d; updateVarsPanel(node.data.resultVar);
+          goTo('out'); break;
+        }
         case 'touchingedgeq': { const atEdge = Math.abs(spriteState.x)>=STAGE_W/2-0.5 || Math.abs(spriteState.y)>=STAGE_H/2-0.5; vars[node.data.resultVar]=atEdge; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
         case 'currenttime': {
           const now=new Date();
@@ -2497,10 +2604,8 @@ async function runProgram(){
   const onKeyUp = (e)=> trackKeyState(e, false);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
-
-  const onSpriteClick = ()=>{ log('Sprite clicked', 'evt'); clickEvents.forEach(cn=> runChain(cn.id)); };
-  spriteWrapEl.style.pointerEvents = clickEvents.length ? 'auto' : 'none';
-  if(clickEvents.length) spriteWrapEl.addEventListener('pointerdown', onSpriteClick);
+  // Sprite click/tap detection is handled globally (see onSpriteDragEnd above) so it
+  // also works when the sprite is being dragged around outside of a run.
 
   try{
     for(const ev of events){
@@ -2521,7 +2626,6 @@ async function runProgram(){
   } finally {
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('keyup', onKeyUp);
-    if(clickEvents.length) spriteWrapEl.removeEventListener('pointerdown', onSpriteClick);
     activeFlowEdgeId = null; drawWires();
   }
 
@@ -2536,20 +2640,23 @@ stopBtn.addEventListener('click', ()=>{
 
 /* ============================= STARTER EXAMPLE ============================= */
 function seedExample(){
-  const n1 = createNode('event', 60, 60);
-  const n2 = createNode('say', 320, 10, {text:'Hello!'});
-  const n3 = createNode('setvar', 320, 150, {name:'score', value:'0'});
-  const n4 = createNode('repeat', 600, 90, {count:3});
-  const n5 = createNode('changevar', 860, 10, {name:'score', delta:1});
-  const n6 = createNode('move', 860, 140, {steps:10});
-  const n7 = createNode('say', 1140, 240, {text:'Done!'});
+  // When Clicked -> Forever [ Move 10 -> Touching Edge? -> If atEdge=true: Say "end" -> Stop All ]
+  const n1 = createNode('event', 60, 80);
+  const n2 = createNode('forever', 320, 60);
+  const n3 = createNode('move', 600, 10, {steps:10});
+  const n4 = createNode('touchingedgeq', 600, 130, {resultVar:'atEdge'});
+  const n5 = createNode('ifelse', 880, 70, {left:'atEdge', op:'=', right:'true'});
+  const n6 = createNode('say', 1160, 10, {text:'end', secs:0});
+  const n7 = createNode('stopscript', 1160, 140, {scope:'All'});
 
   edges.push({id:uid('e'), from:n1.id, fromPort:'out', to:n2.id});
-  edges.push({id:uid('e'), from:n2.id, fromPort:'out', to:n3.id});
+  edges.push({id:uid('e'), from:n2.id, fromPort:'body', to:n3.id});
   edges.push({id:uid('e'), from:n3.id, fromPort:'out', to:n4.id});
-  edges.push({id:uid('e'), from:n4.id, fromPort:'body', to:n5.id});
-  edges.push({id:uid('e'), from:n5.id, fromPort:'out', to:n6.id});
-  edges.push({id:uid('e'), from:n4.id, fromPort:'done', to:n7.id});
+  edges.push({id:uid('e'), from:n4.id, fromPort:'out', to:n5.id});
+  edges.push({id:uid('e'), from:n5.id, fromPort:'true', to:n6.id});
+  edges.push({id:uid('e'), from:n6.id, fromPort:'out', to:n7.id});
+  // The If's "false" output is left unconnected on purpose \u2014 when not at the edge,
+  // the Forever loop just starts its next lap automatically.
   drawWires();
   selectNode(null);
   undoStack = []; redoStack = [];
