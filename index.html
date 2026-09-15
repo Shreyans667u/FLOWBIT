@@ -6,6 +6,8 @@
 <title>Flowbit — Visual Coding</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Supabase client: talks to your project's database/auth over HTTPS. No server of yours involved. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg: #0a0a0e;
@@ -225,6 +227,14 @@
   .node.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent), 0 0 22px -2px var(--accent), 0 6px 18px rgba(0,0,0,.4);}
   .node.active{box-shadow:0 0 0 1px var(--accent), 0 0 28px 2px var(--accent), 0 6px 18px rgba(0,0,0,.4);animation:pulse .9s ease-in-out infinite;}
   .node.error{box-shadow:0 0 0 1px var(--danger), 0 0 20px 0 rgba(255,93,114,.5);}
+  .node.invalid{border-left-color:var(--danger);}
+  .node.invalid::after{
+    content:'!';position:absolute;top:-7px;right:-7px;width:16px;height:16px;border-radius:50%;
+    background:var(--danger);color:#fff;font-size:10.5px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;z-index:4;
+    box-shadow:0 0 0 2px #111115;
+  }
+  .port.snap-target{box-shadow:0 0 0 6px rgba(255,255,255,.18);border-color:#fff;}
   @keyframes pulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35);}}
   .node-head{
     padding:9px 10px 9px 12px;font-family:'Sora',sans-serif;font-size:12.5px;font-weight:600;color:var(--text);
@@ -314,6 +324,60 @@
   #console .line.err{color:var(--danger);}
   #console .line .t{color:var(--text-faint);margin-right:6px;}
   #console .line.hidden{display:none;}
+
+  /* ---------- Account area (header) ---------- */
+  .account-area{display:flex;align-items:center;gap:8px;margin-right:4px;}
+  .account-area .who{font-size:12px;color:var(--text-dim);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .account-area button{padding:7px 12px;}
+
+  /* ---------- Toasts (network/session/error feedback, plain language) ---------- */
+  #toastHost{position:fixed;top:calc(var(--header-h) + var(--subbar-h) + 10px);right:14px;z-index:150;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .toast{
+    background:var(--panel-2);border:1px solid var(--border);border-left:3px solid var(--motion);border-radius:9px;
+    padding:9px 13px;font-size:12.5px;box-shadow:0 10px 26px rgba(0,0,0,.4);max-width:300px;
+    animation:toastIn .18s ease;
+  }
+  .toast.err{border-left-color:var(--danger);}
+  .toast.ok{border-left-color:#1fce8f;}
+  @keyframes toastIn{from{opacity:0;transform:translateX(12px);}to{opacity:1;transform:translateX(0);}}
+
+  /* ---------- "Viewing a shared project" banner ---------- */
+  .share-banner{
+    display:none;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--sensing-soft);border-bottom:1px solid var(--sensing);color:var(--text);
+    padding:8px 16px;font-size:12.5px;
+  }
+  .share-banner.show{display:flex;}
+  .share-banner button{padding:6px 11px;font-size:12px;background:var(--sensing);color:#04262b;border-color:transparent;font-weight:600;}
+
+  /* ---------- Generic modal overlay (auth / projects) ---------- */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(6,6,9,.6);display:flex;align-items:center;justify-content:center;
+    z-index:110;opacity:0;pointer-events:none;transition:opacity .15s ease;
+  }
+  .modal-overlay.show{opacity:1;pointer-events:auto;}
+
+  .auth-modal{width:340px;max-width:calc(100vw - 40px);background:linear-gradient(180deg,#17171d,#121216);border:1px solid var(--border);border-left:3px solid var(--motion);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.55);padding:16px 18px;}
+  .auth-tabs{display:flex;gap:4px;margin-bottom:12px;background:#0c0c10;border-radius:8px;padding:3px;}
+  .auth-tab{flex:1;background:transparent;border:none;padding:7px 4px;font-size:11.5px;color:var(--text-dim);border-radius:6px;justify-content:center;}
+  .auth-tab.active{background:var(--panel-2);color:var(--text);}
+  .auth-desc{font-size:12px;color:var(--text-dim);margin:0 0 12px;line-height:1.4;}
+  .auth-error{font-size:12px;color:var(--danger);min-height:16px;margin:2px 0 8px;}
+  #authSubmitBtn{background:linear-gradient(135deg,var(--motion),var(--operators));border-color:transparent;color:#04121f;font-weight:600;}
+
+  .projects-modal{width:420px;max-width:calc(100vw - 40px);max-height:74vh;display:flex;flex-direction:column;background:linear-gradient(180deg,#17171d,#121216);border:1px solid var(--border);border-left:3px solid var(--variables);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.55);padding:16px 18px;}
+  .projects-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .projects-modal-head h3{margin:0;font-family:'Sora',sans-serif;font-size:14px;}
+  .save-as-new-btn{width:100%;justify-content:center;margin-bottom:12px;border-style:dashed;color:var(--text-dim);}
+  .projects-list{overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+  .project-row{background:#0c0c11;border:1px solid var(--border-soft);border-radius:9px;padding:10px 12px;}
+  .project-row .prow-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;}
+  .project-row .pname{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .project-row .pmeta{font-size:10.5px;color:var(--text-faint);}
+  .project-row .prow-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .project-row .prow-actions button{padding:5px 9px;font-size:11px;}
+  .project-row .share-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim);margin-top:6px;}
+  .project-row .share-toggle input{accent-color:var(--sensing);}
 
   ::-webkit-scrollbar{width:9px;height:9px;}
   ::-webkit-scrollbar-thumb{background:#222229;border-radius:5px;}
@@ -444,11 +508,15 @@
       </div>
     </div>
     <div class="top-actions">
+      <div id="accountArea" class="account-area"></div>
       <button id="clearBtn">Clear</button>
       <button id="stopBtn" disabled>&#9632; Stop</button>
       <button id="runBtn">&#9654; Run</button>
     </div>
   </header>
+
+  <div id="toastHost"></div>
+  <div id="shareBanner" class="share-banner"></div>
 
   <div class="subbar">
     <div class="group">
@@ -468,6 +536,7 @@
       <div class="sep"></div>
       <span id="saveIndicator"></span>
       <button id="saveBtn" title="Save to this browser"></button>
+      <button id="cloudSaveBtn" title="Save to your account">Cloud Save</button>
       <button id="loadBtn" title="Load saved project"></button>
       <button id="exportBtn" title="Export as .json"></button>
       <button id="importBtn" title="Import a .json file"></button>
@@ -548,6 +617,37 @@
     <p id="askModalText">Question</p>
     <input type="text" id="askModalInput" placeholder="Type your answer&hellip;">
     <div class="ask-actions"><button id="askModalSubmit">Submit</button></div>
+  </div>
+</div>
+
+<!-- Sign up / log in / forgot password. One modal, three modes toggled by tab. -->
+<div id="authModalOverlay" class="modal-overlay">
+  <div class="auth-modal">
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-mode="login">Log In</button>
+      <button class="auth-tab" data-mode="signup">Sign Up</button>
+      <button class="auth-tab" data-mode="reset">Forgot Password</button>
+    </div>
+    <p class="auth-desc" id="authDesc">Log in to save projects to your account and access them anywhere.</p>
+    <div class="field-row" style="margin-bottom:8px;"><label style="min-width:50px;">Email</label><input type="email" id="authEmail" autocomplete="email"></div>
+    <div class="field-row" id="authPasswordRow" style="margin-bottom:4px;"><label style="min-width:50px;">Password</label><input type="password" id="authPassword" autocomplete="current-password"></div>
+    <p class="auth-error" id="authError"></p>
+    <div class="ask-actions" style="justify-content:space-between;align-items:center;">
+      <button id="authCloseBtn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);">Cancel</button>
+      <button id="authSubmitBtn">Log In</button>
+    </div>
+  </div>
+</div>
+
+<!-- The signed-in user's cloud-saved projects: open / rename / delete / share -->
+<div id="projectsModalOverlay" class="modal-overlay">
+  <div class="projects-modal">
+    <div class="projects-modal-head">
+      <h3>My Projects</h3>
+      <button id="projectsCloseBtn" class="icon-btn" style="background:transparent;border:none;">&times;</button>
+    </div>
+    <button id="saveAsNewBtn" class="save-as-new-btn">+ Save current canvas as a new project</button>
+    <div id="projectsList" class="projects-list"><div class="empty-note">No cloud-saved projects yet.</div></div>
   </div>
 </div>
 
@@ -867,6 +967,7 @@ function createNode(type, x, y, presetData){
   const node = { id: uid('n'), type, x, y, data };
   nodes.push(node);
   renderNode(node);
+  updateNodeValidity(node);
   selectNode(node.id);
   updateCanvasEmptyState();
   return node;
@@ -928,6 +1029,7 @@ function renderNode(node){
       const commit = ()=>{
         pushHistory();
         node.data[f.key] = f.type==='number' ? (parseFloat(input.value)||0) : input.value;
+        updateNodeValidity(node);
       };
       input.addEventListener('change', commit);
       // On mobile, an on-screen keyboard can cover whatever field is being edited.
@@ -1004,6 +1106,36 @@ function refreshNodeFieldsDOM(node){
   if(!el) return;
   const inputs = el.querySelectorAll('.field-row input, .field-row select, .field-row textarea');
   def.fields.forEach((f,i)=>{ if(inputs[i]) inputs[i].value = node.data[f.key]; });
+}
+
+// Fields that must not be left blank for the block to do anything sensible \u2014
+// variable/list/message/key names, and every "Set <resultVar>" field. Checked live
+// as you type and again in one pass right before Run (see runProgram).
+const REQUIRED_FIELD_KEYS = new Set(['name','list','message','key','resultVar','left']);
+function validateNode(node){
+  const def = NODE_DEFS[node.type];
+  const problems = [];
+  def.fields.forEach(f=>{
+    if(REQUIRED_FIELD_KEYS.has(f.key)){
+      const v = node.data[f.key];
+      if(v===undefined || String(v).trim()===''){
+        problems.push(`"${f.label || f.key}" is empty`);
+      }
+    }
+  });
+  return problems;
+}
+function updateNodeValidity(node){
+  const el = nodeEls[node.id];
+  if(!el) return;
+  const problems = validateNode(node);
+  el.classList.toggle('invalid', problems.length>0);
+  el.title = problems.length ? ('Needs attention: '+problems.join(', ')) : '';
+}
+function validateAllNodes(){
+  const invalidNodes = [];
+  nodes.forEach(n=>{ updateNodeValidity(n); if(validateNode(n).length) invalidNodes.push(n); });
+  return invalidNodes;
 }
 
 /* ============================= NODE DRAG ============================= */
@@ -1100,22 +1232,47 @@ function bezier(x1,y1,x2,y2){
 function onWireDragMove(e){
   if(!wireDrag) return;
   const p = canvasPointFromClient(e.clientX, e.clientY);
-  wireDrag.path.setAttribute('d', bezier(wireDrag.start.x, wireDrag.start.y, p.x, p.y));
+  const snap = findSnapTarget(p, wireDrag.fromNode);
+  if(wireDrag.snapEl) wireDrag.snapEl.classList.remove('snap-target');
+  wireDrag.snapPoint = null; wireDrag.snapEl = null;
+  if(snap){
+    snap.el.classList.add('snap-target');
+    wireDrag.snapEl = snap.el;
+    wireDrag.snapPoint = snap.point;
+    wireDrag.snapNodeId = snap.nodeId;
+  }
+  const target = wireDrag.snapPoint || p;
+  wireDrag.path.setAttribute('d', bezier(wireDrag.start.x, wireDrag.start.y, target.x, target.y));
+}
+// Finds the nearest unconnected input port within snapping range, so lining a wire up
+// "close enough" to a port connects it \u2014 useful with a fingertip, not just a mouse cursor.
+const SNAP_RADIUS = 30; // in canvas (unscaled) units
+function findSnapTarget(point, fromNodeId){
+  let best = null, bestDist = SNAP_RADIUS;
+  document.querySelectorAll('.port-in').forEach(portEl=>{
+    const targetNodeId = portEl.dataset.node;
+    if(targetNodeId === fromNodeId) return; // no self-loops
+    const r = portEl.getBoundingClientRect();
+    const c = canvasPointFromClient(r.left+r.width/2, r.top+r.height/2);
+    const d = Math.hypot(c.x-point.x, c.y-point.y);
+    if(d < bestDist){ bestDist = d; best = { el: portEl, point: c, nodeId: targetNodeId }; }
+  });
+  return best;
 }
 function onWireDragEnd(e){
   window.removeEventListener('pointermove', onWireDragMove);
   window.removeEventListener('pointerup', onWireDragEnd);
   if(!wireDrag) return;
-  const target = document.elementFromPoint(e.clientX, e.clientY);
+  if(wireDrag.snapEl) wireDrag.snapEl.classList.remove('snap-target');
+  const snappedNode = wireDrag.snapNodeId;
+  const target = snappedNode ? null : document.elementFromPoint(e.clientX, e.clientY);
   wireDrag.path.remove();
-  if(target && target.classList.contains('port-in')){
-    const toNode = target.dataset.node;
-    if(toNode !== wireDrag.fromNode){
-      pushHistory();
-      edges = edges.filter(ed => !(ed.to===toNode) && !(ed.from===wireDrag.fromNode && ed.fromPort===wireDrag.fromPort));
-      edges.push({ id: uid('e'), from: wireDrag.fromNode, fromPort: wireDrag.fromPort, to: toNode });
-      drawWires();
-    }
+  const toNode = snappedNode || (target && target.classList.contains('port-in') ? target.dataset.node : null);
+  if(toNode && toNode !== wireDrag.fromNode){
+    pushHistory();
+    edges = edges.filter(ed => !(ed.to===toNode) && !(ed.from===wireDrag.fromNode && ed.fromPort===wireDrag.fromPort));
+    edges.push({ id: uid('e'), from: wireDrag.fromNode, fromPort: wireDrag.fromPort, to: toNode });
+    drawWires();
   }
   wireDrag = null;
 }
@@ -1516,6 +1673,7 @@ function restoreSnapshot(data){
     const node = { id: nd.id, type: nd.type, x: nd.x, y: nd.y, data: {...nd.data} };
     nodes.push(node);
     renderNode(node);
+    updateNodeValidity(node);
   });
   // Keep future ids from colliding with anything in the restored graph
   let maxId = 0;
@@ -1545,7 +1703,255 @@ function redo(){
 undoBtn.addEventListener('click', undo);
 redoBtn.addEventListener('click', redo);
 
-/* ============================= SAVE / LOAD / EXPORT / IMPORT ============================= */
+/* =====================================================================
+   BACKEND: accounts + cloud projects, via Supabase
+   ---------------------------------------------------------------------
+   Paste your project's values below (Supabase dashboard \u2192 Project Settings \u2192 API).
+   The "anon" key is DESIGNED to be public \u2014 it has no special power by itself.
+   Every table's Row Level Security policy (see schema.sql) is what actually decides
+   who can read/write what. Never put a "service_role" key here \u2014 that one is secret.
+   ===================================================================== */
+const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL_HERE';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE';
+const sb = (SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20 && window.supabase)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+if(!sb){
+  console.warn('Flowbit: Supabase is not configured \u2014 accounts and cloud save are disabled until SUPABASE_URL/SUPABASE_ANON_KEY are set. See README.md.');
+}
+let currentUser = null;          // the logged-in Supabase user, or null
+let currentCloudProjectId = null; // which cloud row (if any) "Cloud Save" will update
+let authMode = 'login';
+
+/* ---- Toasts: short-lived, plain-language feedback for network/auth/server issues ---- */
+const toastHost = document.getElementById('toastHost');
+function showToast(msg, kind){
+  const t = document.createElement('div');
+  t.className = 'toast'+(kind?(' '+kind):'');
+  t.textContent = msg;
+  toastHost.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .2s ease'; setTimeout(()=>t.remove(),200); }, 4200);
+}
+// Every Supabase call goes through this so failures always reach the user in plain
+// language instead of a silently broken button or a raw error in the console only.
+async function sbCall(promise, friendlyAction){
+  if(!sb){ showToast('Accounts aren\u2019t set up yet for this copy of Flowbit.', 'err'); return {data:null, error:{message:'not configured'}}; }
+  try{
+    const result = await promise;
+    if(result.error){
+      const msg = result.error.message || 'Something went wrong';
+      showToast(`Couldn\u2019t ${friendlyAction}: ${msg}`, 'err');
+    }
+    return result;
+  } catch(networkErr){
+    showToast(`Couldn\u2019t ${friendlyAction} \u2014 check your internet connection.`, 'err');
+    return {data:null, error:networkErr};
+  }
+}
+
+/* ---- Auth UI wiring ---- */
+const accountArea = document.getElementById('accountArea');
+const authModalOverlay = document.getElementById('authModalOverlay');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authPasswordRow = document.getElementById('authPasswordRow');
+const authDesc = document.getElementById('authDesc');
+const authError = document.getElementById('authError');
+const authSubmitBtn = document.getElementById('authSubmitBtn');
+const authCloseBtn = document.getElementById('authCloseBtn');
+
+function renderAccountArea(){
+  if(currentUser){
+    accountArea.innerHTML = `<span class="who">${currentUser.email}</span><button id="myProjectsBtn">My Projects</button><button id="logoutBtn">Log Out</button>`;
+    document.getElementById('myProjectsBtn').addEventListener('click', openProjectsModal);
+    document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+      await sb.auth.signOut();
+    });
+  } else {
+    accountArea.innerHTML = `<button id="loginOpenBtn">Log In</button>`;
+    document.getElementById('loginOpenBtn').addEventListener('click', ()=> openAuthModal('login'));
+  }
+}
+function openAuthModal(mode){
+  setAuthMode(mode);
+  authEmail.value=''; authPassword.value=''; authError.textContent='';
+  authModalOverlay.classList.add('show');
+  setTimeout(()=>authEmail.focus(), 10);
+}
+function closeAuthModal(){ authModalOverlay.classList.remove('show'); }
+function setAuthMode(mode){
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach(t=> t.classList.toggle('active', t.dataset.mode===mode));
+  authPasswordRow.style.display = mode==='reset' ? 'none' : 'flex';
+  authDesc.textContent = mode==='login' ? 'Log in to save projects to your account and access them anywhere.'
+    : mode==='signup' ? 'Create an account \u2014 just an email and a password, nothing else.'
+    : 'Enter your email and we\u2019ll send you a link to reset your password.';
+  authSubmitBtn.textContent = mode==='login' ? 'Log In' : mode==='signup' ? 'Sign Up' : 'Send Reset Link';
+  authError.textContent = '';
+}
+document.querySelectorAll('.auth-tab').forEach(t=> t.addEventListener('click', ()=> setAuthMode(t.dataset.mode)));
+authCloseBtn.addEventListener('click', closeAuthModal);
+authModalOverlay.addEventListener('pointerdown', (e)=>{ if(e.target===authModalOverlay) closeAuthModal(); });
+
+authSubmitBtn.addEventListener('click', async ()=>{
+  if(!sb){ authError.textContent = 'Accounts aren\u2019t set up yet for this copy of Flowbit.'; return; }
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  if(!email){ authError.textContent = 'Enter an email address.'; return; }
+  authError.textContent = '';
+  authSubmitBtn.disabled = true;
+  try{
+    if(authMode==='login'){
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if(error){ authError.textContent = error.message; }
+      else { closeAuthModal(); showToast('Logged in.', 'ok'); }
+    } else if(authMode==='signup'){
+      if(password.length < 6){ authError.textContent = 'Password needs to be at least 6 characters.'; authSubmitBtn.disabled=false; return; }
+      const { error } = await sb.auth.signUp({ email, password });
+      if(error){ authError.textContent = error.message; }
+      else { closeAuthModal(); showToast('Account created \u2014 check your email to confirm it.', 'ok'); }
+    } else {
+      const { error } = await sb.auth.resetPasswordForEmail(email);
+      if(error){ authError.textContent = error.message; }
+      else { closeAuthModal(); showToast('Check your email for a reset link.', 'ok'); }
+    }
+  } catch(err){
+    authError.textContent = 'Network error \u2014 check your connection and try again.';
+  }
+  authSubmitBtn.disabled = false;
+});
+
+if(sb){
+  sb.auth.onAuthStateChange((_event, session)=>{
+    currentUser = session ? session.user : null;
+    renderAccountArea();
+  });
+  sb.auth.getSession().then(({data})=>{
+    currentUser = data.session ? data.session.user : null;
+    renderAccountArea();
+  });
+} else {
+  renderAccountArea();
+}
+
+/* ---- My Projects: list / open / rename / delete / share ---- */
+const projectsModalOverlay = document.getElementById('projectsModalOverlay');
+const projectsListEl = document.getElementById('projectsList');
+const projectsCloseBtn = document.getElementById('projectsCloseBtn');
+const saveAsNewBtn = document.getElementById('saveAsNewBtn');
+const cloudSaveBtn = document.getElementById('cloudSaveBtn');
+
+async function openProjectsModal(){
+  projectsModalOverlay.classList.add('show');
+  projectsListEl.innerHTML = '<div class="empty-note">Loading\u2026</div>';
+  const { data, error } = await sbCall(
+    sb.from('projects').select('id,name,updated_at,is_public,share_token').order('updated_at',{ascending:false}),
+    'load your projects'
+  );
+  if(error){ projectsListEl.innerHTML = '<div class="empty-note">Couldn\u2019t load projects.</div>'; return; }
+  renderProjectsList(data||[]);
+}
+function renderProjectsList(rows){
+  if(!rows.length){ projectsListEl.innerHTML = '<div class="empty-note">No cloud-saved projects yet.</div>'; return; }
+  projectsListEl.innerHTML = '';
+  rows.forEach(row=>{
+    const el = document.createElement('div');
+    el.className = 'project-row';
+    const when = new Date(row.updated_at).toLocaleString([], {dateStyle:'medium', timeStyle:'short'});
+    el.innerHTML = `
+      <div class="prow-top"><span class="pname">${row.name}</span><span class="pmeta">${when}</span></div>
+      <div class="prow-actions">
+        <button data-act="open">Open</button>
+        <button data-act="rename">Rename</button>
+        <button data-act="share">Copy Share Link</button>
+        <button data-act="delete" style="color:#ff8b9a;">Delete</button>
+      </div>
+      <label class="share-toggle"><input type="checkbox" data-act="toggle-public" ${row.is_public?'checked':''}> Shareable link enabled</label>
+    `;
+    el.querySelector('[data-act="open"]').addEventListener('click', ()=> openCloudProject(row.id));
+    el.querySelector('[data-act="rename"]').addEventListener('click', async ()=>{
+      const name = prompt('New name for this project:', row.name);
+      if(!name) return;
+      const { error } = await sbCall(sb.from('projects').update({name}).eq('id',row.id), 'rename that project');
+      if(!error) openProjectsModal();
+    });
+    el.querySelector('[data-act="delete"]').addEventListener('click', async ()=>{
+      if(!confirm(`Delete "${row.name}"? This can\u2019t be undone.`)) return;
+      const { error } = await sbCall(sb.from('projects').delete().eq('id',row.id), 'delete that project');
+      if(!error){ if(currentCloudProjectId===row.id) currentCloudProjectId=null; openProjectsModal(); }
+    });
+    el.querySelector('[data-act="share"]').addEventListener('click', async ()=>{
+      const url = `${location.origin}${location.pathname}?share=${row.share_token}`;
+      if(!row.is_public){
+        showToast('Turn on "Shareable link enabled" first, so the link actually works.', 'err');
+        return;
+      }
+      try{ await navigator.clipboard.writeText(url); showToast('Share link copied.', 'ok'); }
+      catch(e){ prompt('Copy this link:', url); }
+    });
+    el.querySelector('[data-act="toggle-public"]').addEventListener('change', async (e)=>{
+      const { error } = await sbCall(sb.from('projects').update({is_public:e.target.checked}).eq('id',row.id), 'update sharing');
+      if(error) e.target.checked = !e.target.checked;
+    });
+    projectsListEl.appendChild(el);
+  });
+}
+async function openCloudProject(id){
+  const { data, error } = await sbCall(sb.from('projects').select('id,name,data').eq('id',id).single(), 'open that project');
+  if(error || !data) return;
+  pushHistory();
+  restoreSnapshot(data.data);
+  currentCloudProjectId = data.id;
+  projectsModalOverlay.classList.remove('show');
+  showToast(`Opened "${data.name}".`, 'ok');
+}
+projectsCloseBtn.addEventListener('click', ()=> projectsModalOverlay.classList.remove('show'));
+projectsModalOverlay.addEventListener('pointerdown', (e)=>{ if(e.target===projectsModalOverlay) projectsModalOverlay.classList.remove('show'); });
+saveAsNewBtn.addEventListener('click', async ()=>{
+  const name = prompt('Name this project:', 'My Flowbit Project');
+  if(!name) return;
+  const { data, error } = await sbCall(
+    sb.from('projects').insert({ user_id: currentUser.id, name, data: JSON.parse(snapshot()) }).select().single(),
+    'save that project'
+  );
+  if(!error){ currentCloudProjectId = data.id; showToast(`Saved as "${name}".`, 'ok'); openProjectsModal(); }
+});
+
+/* ---- Cloud Save: upsert whichever project is currently open, or prompt to create one ---- */
+async function cloudSave(){
+  if(!currentUser){ openAuthModal('login'); return; }
+  if(!currentCloudProjectId){ saveAsNewBtn.click(); return; }
+  showToast('Saving\u2026');
+  const { error } = await sbCall(
+    sb.from('projects').update({ data: JSON.parse(snapshot()) }).eq('id', currentCloudProjectId),
+    'save to your account'
+  );
+  if(!error) showToast('Saved to your account.', 'ok');
+}
+cloudSaveBtn.addEventListener('click', cloudSave);
+
+/* ---- Shared-project links: ?share=<token> loads a read-only copy with a Remix option ---- */
+const shareBanner = document.getElementById('shareBanner');
+let viewingShareToken = null;
+async function checkForSharedLink(){
+  const token = new URLSearchParams(location.search).get('share');
+  if(!token || !sb) return;
+  const { data, error } = await sbCall(sb.rpc('get_shared_project', {token}), 'load that shared project');
+  if(error || !data || !data.length){ showToast('That share link is invalid or no longer available.', 'err'); return; }
+  const proj = data[0];
+  restoreSnapshot(proj.data);
+  undoStack = []; redoStack = []; updateHistoryButtons();
+  viewingShareToken = token;
+  shareBanner.className = 'share-banner show';
+  shareBanner.innerHTML = `<span>Viewing a shared project: <strong>${proj.name}</strong> \u2014 your changes here won\u2019t be saved to the original.</span><button id="remixBtn">Remix (save my own copy)</button>`;
+  document.getElementById('remixBtn').addEventListener('click', async ()=>{
+    if(!currentUser){ openAuthModal('login'); return; }
+    const { data: newId, error: remixErr } = await sbCall(sb.rpc('remix_project', {token, new_name: proj.name+' (remix)'}), 'remix that project');
+    if(!remixErr){ currentCloudProjectId = newId; showToast('Saved a copy to your account.', 'ok'); history.replaceState(null,'',location.pathname); shareBanner.classList.remove('show'); }
+  });
+}
+
+
 function showSaved(msg){
   saveIndicator.textContent = msg;
   clearTimeout(showSaved._t);
@@ -1667,8 +2073,8 @@ function mathCompute(a,op,b){
     case '+': return an+bn;
     case '-': return an-bn;
     case '*': return an*bn;
-    case '/': return bn!==0 ? an/bn : 0;
-    case '%': return bn!==0 ? an%bn : 0;
+    case '/': return bn!==0 ? an/bn : NaN;   // NaN, not 0 \u2014 division by zero is a real mistake worth surfacing
+    case '%': return bn!==0 ? an%bn : NaN;
   }
   return 0;
 }
@@ -1709,6 +2115,7 @@ const STEP_LIMIT = 6000;
 
 async function highlight(node){ const el = nodeEls[node.id]; if(el) el.classList.add('active'); }
 function unhighlight(node){ const el = nodeEls[node.id]; if(el) el.classList.remove('active'); }
+function flagNodeError(nodeId){ const el = nodeEls[nodeId]; if(el) el.classList.add('error'); }
 
 async function runChain(startNodeId){
   let currentId = startNodeId;
@@ -1855,7 +2262,7 @@ async function runChain(startNodeId){
             if(stopRequested) return;
             if(!bodyStart) break;
             try{ await runChain(bodyStart); } catch(e){ if(e instanceof BreakSignal) break; throw e; }
-            if(++guardCount>2000){ log('Forever loop stopped: safety limit reached.', 'err'); break; }
+            if(++guardCount>2000){ log('Forever loop stopped after 2000 iterations as a safety limit — add a Break Loop if this was meant to run indefinitely under a condition.', 'err'); flagNodeError(node.id); break; }
           }
           goTo('done'); break;
         }
@@ -1872,7 +2279,7 @@ async function runChain(startNodeId){
             if(stopRequested) return;
             const l=resolveVal(node.data.left), r=resolveVal(node.data.right);
             if(compare(l,node.data.op,r)) break;
-            if(++guard>2000){ log('Wait Until gave up: condition never became true.', 'err'); break; }
+            if(++guard>2000){ log(`Wait Until gave up after ~100s: "${node.data.left} ${node.data.op} ${node.data.right}" never became true. Check that ${node.data.left} is a variable that actually changes.`, 'err'); flagNodeError(node.id); break; }
             await rawSleep(50);
           }
           goTo('out'); break;
@@ -1886,7 +2293,7 @@ async function runChain(startNodeId){
             if(compare(l,node.data.op,r)) break; // Scratch semantics: stop once the condition is TRUE
             if(!bodyStart) break;
             try{ await runChain(bodyStart); } catch(e){ if(e instanceof BreakSignal) break; throw e; }
-            if(++guardCount>500){ log('Repeat Until stopped: safety limit reached.', 'err'); break; }
+            if(++guardCount>500){ log(`Repeat Until stopped after 500 loops: "${node.data.left} ${node.data.op} ${node.data.right}" never became true.`, 'err'); flagNodeError(node.id); break; }
           }
           goTo('done'); break;
         }
@@ -1928,15 +2335,21 @@ async function runChain(startNodeId){
         case 'mathop': {
           const a=resolveVal(node.data.a), b=resolveVal(node.data.b);
           const res=mathCompute(a,node.data.op,b);
-          vars[node.data.resultVar]=res; updateVarsPanel(node.data.resultVar);
-          log(`Math: ${node.data.resultVar} = ${node.data.a} ${node.data.op} ${node.data.b} = ${res}`, 'var');
+          vars[node.data.resultVar]= Number.isNaN(res) ? 0 : res;
+          updateVarsPanel(node.data.resultVar);
+          if(Number.isNaN(res)){
+            log(`Math error: ${node.data.a} ${node.data.op} ${node.data.b} is undefined (division by zero). ${node.data.resultVar} was set to 0.`, 'err');
+            flagNodeError(node.id);
+          } else {
+            log(`Math: ${node.data.resultVar} = ${node.data.a} ${node.data.op} ${node.data.b} = ${res}`, 'var');
+          }
           goTo('out'); break;
         }
         case 'mathfunc': {
           const a=Number(resolveVal(node.data.a)), b=Number(resolveVal(node.data.b));
           let res;
           switch(node.data.func){
-            case 'sqrt': res=Math.sqrt(a); break;
+            case 'sqrt': res=Math.sqrt(a); break; // negative input \u2192 NaN, handled below
             case 'abs': res=Math.abs(a); break;
             case 'round': res=Math.round(a); break;
             case 'floor': res=Math.floor(a); break;
@@ -1944,9 +2357,15 @@ async function runChain(startNodeId){
             case 'sin': res=Math.sin(a*Math.PI/180); break;
             case 'cos': res=Math.cos(a*Math.PI/180); break;
           }
-          res = Math.round(res*10000)/10000;
+          if(Number.isNaN(res)){
+            log(`Math Function error: ${node.data.func}(${node.data.a}) is undefined (e.g. square root of a negative number). ${node.data.resultVar} was set to 0.`, 'err');
+            flagNodeError(node.id);
+            res = 0;
+          } else {
+            res = Math.round(res*10000)/10000;
+            log(`Math Function: ${node.data.resultVar} = ${node.data.func}(${node.data.a}) = ${res}`, 'var');
+          }
           vars[node.data.resultVar]=res; updateVarsPanel(node.data.resultVar);
-          log(`Math Function: ${node.data.resultVar} = ${node.data.func}(${node.data.a}) = ${res}`, 'var');
           goTo('out'); break;
         }
         case 'boolop': {
@@ -1992,11 +2411,34 @@ async function runChain(startNodeId){
         case 'changevar': { const cur=Number(vars[node.data.name])||0; vars[node.data.name]=cur+(Number(node.data.delta)||0); updateVarsPanel(node.data.name); log(`Change ${node.data.name} by ${node.data.delta} \u2192 ${vars[node.data.name]}`, 'var'); goTo('out'); break; }
 
         /* ---- Lists (1-based indices, matching Scratch's convention) ---- */
-        case 'listadd': { const key=node.data.list; if(!lists[key]) lists[key]=[]; lists[key].push(resolveVal(node.data.value)); updateListsPanel(key); log(`Added to ${key}`, 'var'); goTo('out'); break; }
-        case 'listdelete': { const key=node.data.list; const idx=(Number(node.data.index)||1)-1; if(lists[key] && idx>=0 && idx<lists[key].length) lists[key].splice(idx,1); updateListsPanel(key); goTo('out'); break; }
+        case 'listadd': { const key=node.data.list; if(!key){ log('Add To List error: no list name given.', 'err'); flagNodeError(node.id); goTo('out'); break; } if(!lists[key]) lists[key]=[]; lists[key].push(resolveVal(node.data.value)); updateListsPanel(key); log(`Added to ${key}`, 'var'); goTo('out'); break; }
+        case 'listdelete': {
+          const key=node.data.list; const idx=(Number(node.data.index)||1)-1;
+          if(!lists[key] || idx<0 || idx>=lists[key].length){
+            log(`Delete Item error: index ${node.data.index} is out of range for "${key}" (length ${lists[key]?lists[key].length:0}).`, 'err');
+            flagNodeError(node.id);
+          } else { lists[key].splice(idx,1); }
+          updateListsPanel(key); goTo('out'); break;
+        }
         case 'listinsert': { const key=node.data.list; if(!lists[key]) lists[key]=[]; const idx=Math.max(0,Math.min(lists[key].length,(Number(node.data.index)||1)-1)); lists[key].splice(idx,0,resolveVal(node.data.value)); updateListsPanel(key); goTo('out'); break; }
-        case 'listreplace': { const key=node.data.list; if(!lists[key]) lists[key]=[]; const idx=(Number(node.data.index)||1)-1; if(idx>=0 && idx<lists[key].length) lists[key][idx]=resolveVal(node.data.value); updateListsPanel(key); goTo('out'); break; }
-        case 'listitemat': { const key=node.data.list; const idx=(Number(node.data.index)||1)-1; const val=(lists[key]&&idx>=0&&idx<lists[key].length)?lists[key][idx]:''; vars[node.data.resultVar]=val; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
+        case 'listreplace': {
+          const key=node.data.list; if(!lists[key]) lists[key]=[];
+          const idx=(Number(node.data.index)||1)-1;
+          if(idx<0 || idx>=lists[key].length){
+            log(`Replace Item error: index ${node.data.index} is out of range for "${key}" (length ${lists[key].length}).`, 'err');
+            flagNodeError(node.id);
+          } else { lists[key][idx]=resolveVal(node.data.value); }
+          updateListsPanel(key); goTo('out'); break;
+        }
+        case 'listitemat': {
+          const key=node.data.list; const idx=(Number(node.data.index)||1)-1;
+          let val = '';
+          if(!lists[key] || idx<0 || idx>=lists[key].length){
+            log(`Item At error: index ${node.data.index} is out of range for "${key}" (length ${lists[key]?lists[key].length:0}). ${node.data.resultVar} was set to empty.`, 'err');
+            flagNodeError(node.id);
+          } else { val = lists[key][idx]; }
+          vars[node.data.resultVar]=val; updateVarsPanel(node.data.resultVar); goTo('out'); break;
+        }
         case 'listlength': { const key=node.data.list; vars[node.data.resultVar]=(lists[key]||[]).length; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
         case 'listcontains': { const key=node.data.list; const needle=resolveVal(node.data.value); const found=(lists[key]||[]).some(v=>String(v)===String(needle)); vars[node.data.resultVar]=found; updateVarsPanel(node.data.resultVar); goTo('out'); break; }
 
@@ -2040,6 +2482,10 @@ async function runProgram(){
   resetStage();
   clearConsole();
   updateVarsPanel(); updateListsPanel();
+  const invalidNodes = validateAllNodes();
+  if(invalidNodes.length){
+    log(`Heads up: ${invalidNodes.length} block${invalidNodes.length===1?'':'s'} ${invalidNodes.length===1?'has':'have'} an empty required field (marked with a red !) \u2014 running anyway.`, 'err');
+  }
   runBtn.disabled = true; stopBtn.disabled = false;
 
   const onKeyDown = (e)=>{
@@ -2112,6 +2558,7 @@ function seedExample(){
 }
 seedExample();
 renderSprite(true);
+checkForSharedLink();
 
 })();
 </script>
