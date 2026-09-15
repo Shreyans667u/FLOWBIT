@@ -302,12 +302,24 @@
   }
   #stageFullscreenExit{
     display:none;position:fixed;inset:16px;z-index:201;pointer-events:none;
+    flex-direction:column;justify-content:space-between;
   }
-  #stage.fullscreen ~ #stageFullscreenExit{display:block;}
-  #stageFullscreenExit button{
-    position:absolute;top:8px;right:8px;pointer-events:auto;padding:7px 10px;
-    background:rgba(10,10,14,.75);border-color:var(--border);
+  #stage.fullscreen ~ #stageFullscreenExit{display:flex;}
+  .fs-hud-top{display:flex;justify-content:flex-end;gap:8px;pointer-events:none;}
+  .fs-hud-top button{pointer-events:auto;padding:8px 12px;background:rgba(10,10,14,.8);border-color:var(--border);box-shadow:0 6px 18px rgba(0,0,0,.4);}
+  #fsRunBtn{background:linear-gradient(135deg,#1fce8f,#0fae76);border-color:transparent;color:#04140d;font-weight:600;}
+  #fsStopBtn{background:rgba(255,93,114,.18);border-color:rgba(255,93,114,.4);color:#ff8b9a;}
+  #fsConsole{
+    pointer-events:auto;max-height:110px;overflow-y:auto;align-self:stretch;
+    background:rgba(10,10,14,.82);border:1px solid var(--border);border-radius:8px;
+    padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;
+    backdrop-filter:blur(3px);
   }
+  #fsConsole .line{color:var(--text-dim);}
+  #fsConsole .line.evt{color:var(--event);}
+  #fsConsole .line.act{color:#bcd9ff;}
+  #fsConsole .line.var{color:var(--variables);}
+  #fsConsole .line.err{color:var(--danger);}
   #stage.dragmode{cursor:crosshair;}
   #spriteWrap{position:absolute;left:50%;top:50%;width:36px;height:36px;transform-origin:center;cursor:grab;touch-action:none;}
   #spriteWrap:active{cursor:grabbing;}
@@ -604,7 +616,14 @@
           <div id="spriteWrap"></div>
           <div class="stage-coords" id="stageCoords">x:0 y:0</div>
         </div>
-        <div id="stageFullscreenExit"><button id="stageFullscreenExitBtn">&times; Exit Fullscreen</button></div>
+        <div id="stageFullscreenExit">
+          <div class="fs-hud-top">
+            <button id="fsRunBtn">&#9654; Run</button>
+            <button id="fsStopBtn" disabled>&#9632; Stop</button>
+            <button id="stageFullscreenExitBtn">&times; Exit Fullscreen</button>
+          </div>
+          <div id="fsConsole"></div>
+        </div>
       </div>
       <div class="panel-section tab-vars-content">
         <h2>Variables</h2>
@@ -1567,14 +1586,22 @@ document.querySelectorAll('.console-filters button').forEach(btn=>{
 
 /* ============================= CONSOLE / VARS / LISTS / STAGE HELPERS ============================= */
 function log(msg, cls){
+  const time = new Date().toLocaleTimeString([], {hour12:false});
   const line = document.createElement('div');
   line.className = 'line'+(cls?(' '+cls):'')+ (consoleFilter!=='all' && cls!==consoleFilter ? ' hidden' : '');
-  const time = new Date().toLocaleTimeString([], {hour12:false});
   line.innerHTML = `<span class="t">${time}</span>${msg}`;
   consoleEl.appendChild(line);
   consoleEl.scrollTop = consoleEl.scrollHeight;
+  // Same line, mirrored into the fullscreen HUD console so Run/Stop still gives feedback
+  // when the Stage panel is fullscreen and the main console is out of view.
+  const fsLine = document.createElement('div');
+  fsLine.className = 'line'+(cls?(' '+cls):'');
+  fsLine.innerHTML = `<span class="t">${time}</span>${msg}`;
+  fsConsole.appendChild(fsLine);
+  while(fsConsole.children.length > 50) fsConsole.removeChild(fsConsole.firstChild);
+  fsConsole.scrollTop = fsConsole.scrollHeight;
 }
-function clearConsole(){ consoleEl.innerHTML=''; }
+function clearConsole(){ consoleEl.innerHTML=''; fsConsole.innerHTML=''; }
 
 function updateVarsPanel(changedKey){
   const keys = Object.keys(vars);
@@ -1645,7 +1672,9 @@ function applyMove(steps){
   renderSprite();
 }
 function resetStage(){
-  spriteState = { x:0, y:0, direction:90, size:100, visible:true };
+  // Position is deliberately NOT reset here \u2014 if you've dragged the sprite somewhere,
+  // Run should start from exactly there. Only the other properties go back to defaults.
+  spriteState.direction = 90; spriteState.size = 100; spriteState.visible = true;
   masterVolume = 100;
   bubbleEl.classList.remove('show');
   renderSprite(true);
@@ -1697,6 +1726,9 @@ function onSpriteDragEnd(){
    everywhere because it's just positioning, not a privileged browser mode. */
 const stageFullscreenBtn = document.getElementById('stageFullscreenBtn');
 const stageFullscreenExitBtn = document.getElementById('stageFullscreenExitBtn');
+const fsConsole = document.getElementById('fsConsole');
+const fsRunBtn = document.getElementById('fsRunBtn');
+const fsStopBtn = document.getElementById('fsStopBtn');
 stageFullscreenBtn.innerHTML = uiIcon('fullscreen');
 function setStageFullscreen(on){
   stageEl.classList.toggle('fullscreen', on);
@@ -1705,6 +1737,10 @@ function setStageFullscreen(on){
 stageFullscreenBtn.addEventListener('click', ()=> setStageFullscreen(true));
 stageFullscreenExitBtn.addEventListener('click', ()=> setStageFullscreen(false));
 window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && stageEl.classList.contains('fullscreen')) setStageFullscreen(false); });
+// These just proxy to the real Run/Stop buttons, so they automatically respect the
+// same enabled/disabled state and run the exact same code \u2014 no logic duplicated.
+fsRunBtn.addEventListener('click', ()=> runBtn.click());
+fsStopBtn.addEventListener('click', ()=> stopBtn.click());
 
 /* ---- Sound: simple oscillator-based tones (no uploaded-audio system) ---- */
 function getAudioCtx(){
@@ -2140,6 +2176,20 @@ function resolveBool(token){
   return !!v;
 }
 function compare(l,op,r){
+  // A reporter like Touching Edge? or Key Pressed? stores a real boolean. Comparing
+  // that against the literal text "true" with JS's own == does NOT work the way
+  // you'd expect (true == 'true' is actually false) \u2014 so booleans get their own path.
+  if(typeof l === 'boolean' || typeof r === 'boolean'){
+    const toBool = v => typeof v==='boolean' ? v : String(v).trim().toLowerCase()==='true';
+    const lb = toBool(l), rb = toBool(r);
+    switch(op){
+      case '=': return lb===rb;
+      case '\u2260': return lb!==rb;
+      case '>': return lb && !rb;
+      case '<': return !lb && rb;
+    }
+    return false;
+  }
   const ln = Number(l), rn = Number(r);
   const bothNum = !isNaN(ln) && !isNaN(rn) && l!=='' && r!=='';
   const L = bothNum?ln:l, R = bothNum?rn:r;
@@ -2594,6 +2644,7 @@ async function runProgram(){
     log(`Heads up: ${invalidNodes.length} block${invalidNodes.length===1?'':'s'} ${invalidNodes.length===1?'has':'have'} an empty required field (marked with a red !) \u2014 running anyway.`, 'err');
   }
   runBtn.disabled = true; stopBtn.disabled = false;
+  fsRunBtn.disabled = true; fsStopBtn.disabled = false;
 
   const onKeyDown = (e)=>{
     trackKeyState(e, true);
@@ -2631,6 +2682,7 @@ async function runProgram(){
 
   if(!stopRequested) log('\u25a0 Finished', 'evt'); else log('\u25a0 Stopped', 'err');
   running = false; runBtn.disabled = false; stopBtn.disabled = true;
+  fsRunBtn.disabled = false; fsStopBtn.disabled = true;
 }
 runBtn.addEventListener('click', runProgram);
 stopBtn.addEventListener('click', ()=>{
