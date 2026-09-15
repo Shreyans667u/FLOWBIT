@@ -556,7 +556,7 @@
       <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" disabled></button>
       <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" disabled></button>
       <div class="sep"></div>
-      <button id="duplicateBtn" class="icon-btn" title="Duplicate selected (Ctrl+D)"></button>
+      <button id="duplicateBtn" title="Duplicate selected (Ctrl+D)"></button>
       <div class="sep"></div>
       <button id="fitBtn" title="Zoom to fit"></button>
     </div>
@@ -609,7 +609,10 @@
       <div class="panel-section tab-stage-content">
         <div class="stage-head">
           <h2>Stage</h2>
-          <button id="stageFullscreenBtn" title="Fullscreen"></button>
+          <div style="display:flex;gap:6px;">
+            <button id="resetSpriteBtn" title="Reset sprite to center"></button>
+            <button id="stageFullscreenBtn" title="Fullscreen"></button>
+          </div>
         </div>
         <div id="stage">
           <div id="speechBubble"></div>
@@ -723,6 +726,7 @@ function catIconSvg(cat){
 }
 const UI_ICONS = {
   fullscreen: '<path d="M4 9V5a1 1 0 011-1h4M20 9V5a1 1 0 00-1-1h-4M4 15v4a1 1 0 001 1h4M20 15v4a1 1 0 01-1 1h-4"/>',
+  reset: '<circle cx="12" cy="12" r="7"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>',
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a6 6 0 010 12h-1"/>',
   redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9a6 6 0 000 12h1"/>',
   duplicate: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/>',
@@ -1726,10 +1730,21 @@ function onSpriteDragEnd(){
    everywhere because it's just positioning, not a privileged browser mode. */
 const stageFullscreenBtn = document.getElementById('stageFullscreenBtn');
 const stageFullscreenExitBtn = document.getElementById('stageFullscreenExitBtn');
+const resetSpriteBtn = document.getElementById('resetSpriteBtn');
 const fsConsole = document.getElementById('fsConsole');
 const fsRunBtn = document.getElementById('fsRunBtn');
 const fsStopBtn = document.getElementById('fsStopBtn');
 stageFullscreenBtn.innerHTML = uiIcon('fullscreen');
+resetSpriteBtn.innerHTML = uiIcon('reset');
+// A full, manual reset \u2014 unlike resetStage() (used at the start of each Run, which
+// deliberately keeps position), this is the escape hatch for when a buggy graph has
+// sent the sprite somewhere off-stage and you just want it back where you can see it.
+resetSpriteBtn.addEventListener('click', ()=>{
+  spriteState = { x:0, y:0, direction:90, size:100, visible:true };
+  bubbleEl.classList.remove('show');
+  renderSprite(true);
+  showToast('Sprite reset to center.', 'ok');
+});
 function setStageFullscreen(on){
   stageEl.classList.toggle('fullscreen', on);
   document.body.style.overflow = on ? 'hidden' : '';
